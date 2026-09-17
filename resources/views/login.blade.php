@@ -308,7 +308,7 @@
                     Đăng nhập hệ thống
                 </button>
 
-                <a href="#" class="toggle-link" onclick="toggleForms(true)">Bạn quên mật khẩu?</a>
+                <a href="#" class="toggle-link" onclick="toggleForms(true)">Đổi mật khẩu</a>
             </form>
 
             <!-- ✅ Form đổi mật khẩu (Ẩn mặc định) -->

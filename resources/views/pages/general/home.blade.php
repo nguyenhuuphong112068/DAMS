@@ -10,14 +10,24 @@
 
 @section('mainContent')
     @php
-        $homeUserId       = session('user')['userId'] ?? null;
-        $canViewDocument  = user_has_permission($homeUserId, 'document.view', 'boolean');
-        $canViewMap       = user_has_permission($homeUserId, 'map.view', 'boolean');
-        $canViewWarehouse = user_has_permission($homeUserId, 'warehouse.view', 'boolean') || user_has_permission($homeUserId, 'location.view', 'boolean');
-        $canViewMaster    = user_has_permission($homeUserId, 'department.view', 'boolean') || user_has_permission($homeUserId, 'status.view', 'boolean') || user_has_permission($homeUserId, 'documentType.view', 'boolean');
-        $canViewPolicy    = user_has_permission($homeUserId, 'user.view', 'boolean') || user_has_permission($homeUserId, 'role.view', 'boolean') || user_has_permission($homeUserId, 'permission.view', 'boolean');
-        $canViewAudit     = user_has_permission($homeUserId, 'auditTrail.view', 'boolean');
-        $canViewRouting   = user_has_permission($homeUserId, 'routing.view', 'boolean') && Route::has('pages.documentStorage.routing.list');
+        $homeUserId = session('user')['userId'] ?? null;
+        $canViewDocument = user_has_permission($homeUserId, 'document.view', 'boolean');
+        $canViewMap = user_has_permission($homeUserId, 'map.view', 'boolean');
+        $canViewWarehouse =
+            user_has_permission($homeUserId, 'warehouse.view', 'boolean') ||
+            user_has_permission($homeUserId, 'location.view', 'boolean');
+        $canViewMaster =
+            user_has_permission($homeUserId, 'department.view', 'boolean') ||
+            user_has_permission($homeUserId, 'status.view', 'boolean') ||
+            user_has_permission($homeUserId, 'documentType.view', 'boolean');
+        $canViewPolicy =
+            user_has_permission($homeUserId, 'user.view', 'boolean') ||
+            user_has_permission($homeUserId, 'role.view', 'boolean') ||
+            user_has_permission($homeUserId, 'permission.view', 'boolean');
+        $canViewAudit = user_has_permission($homeUserId, 'auditTrail.view', 'boolean');
+        $canViewRouting =
+            user_has_permission($homeUserId, 'routing.view', 'boolean') &&
+            Route::has('pages.documentStorage.routing.list');
     @endphp
 
     <div class="content-wrapper home-wrapper">
@@ -32,20 +42,17 @@
                 <div class="home-hero-content">
                     <div class="home-hero-badge">
                         <span class="pulse-dot"></span>
-                        <span class="badge-text">STELLA PHARMACEUTICALS &bull; HỆ THỐNG QUẢN LÝ KHO HỒ SƠ</span>
+                        <span class="badge-text">STELLAPHARMA &bull; HỆ THỐNG QUẢN LÝ KHO HỒ SƠ</span>
                     </div>
 
                     <h1 class="home-hero-title">
                         Chào mừng trở lại, <span class="text-highlight">{{ session('user')['fullName'] ?? 'bạn' }}</span> 👋
                     </h1>
 
-                    <p class="home-hero-sub">
-                        Hệ thống <strong>{{ config('app.name', 'Quản Lý Kho Hồ Sơ (DAMS)') }}</strong> giúp bạn tra cứu, định vị vị trí lưu trữ hồ sơ tài liệu nhanh chóng, bảo mật và chính xác theo tiêu chuẩn thực hành tốt GMP/GSP.
-                    </p>
-
                     <div class="home-hero-actions mt-3">
                         @if ($canViewDocument)
-                            <a href="{{ route('pages.documentStorage.document.list') }}" class="btn btn-hero-primary me-2 mb-2">
+                            <a href="{{ route('pages.documentStorage.document.list') }}"
+                                class="btn btn-hero-primary me-2 mb-2">
                                 <i class="fas fa-search me-2"></i> Tra Cứu Tài Liệu
                             </a>
                         @endif
@@ -131,7 +138,7 @@
 
             <div class="row g-3 mb-4">
                 @if ($canViewDocument)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.documentStorage.document.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284c7;">
@@ -140,13 +147,14 @@
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Quản lý Tài liệu</div>
-                            <div class="home-card-desc">Danh mục hồ sơ tài liệu, in tem nhãn mã QR và thao tác xuất nhập lưu trữ.</div>
+                            <div class="home-card-desc">Danh mục hồ sơ tài liệu, in tem nhãn mã QR và thao tác xuất nhập lưu
+                                trữ.</div>
                         </a>
                     </div>
                 @endif
 
                 @if ($canViewMap)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.storageLocation.map.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(5, 150, 105, 0.1); color: #059669;">
@@ -155,13 +163,14 @@
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Sơ Đồ Kho Trực Quan</div>
-                            <div class="home-card-desc">Bản đồ ô vị trí không gian 2D/lưới, định vị tức thời vị trí tài liệu trên kệ.</div>
+                            <div class="home-card-desc">Bản đồ ô vị trí không gian 2D/lưới, định vị tức thời vị trí tài liệu
+                                trên kệ.</div>
                         </a>
                     </div>
                 @endif
 
                 @if ($canViewWarehouse)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.storageLocation.warehouse.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(217, 119, 6, 0.1); color: #d97706;">
@@ -170,28 +179,31 @@
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Vị Trí Lưu Trữ</div>
-                            <div class="home-card-desc">Quản lý phân cấp linh hoạt: Kho &rarr; Kệ (Shelf) &rarr; Tầng (Tier) &rarr; Vị trí (Location).</div>
+                            <div class="home-card-desc">Quản lý phân cấp linh hoạt: Kho &rarr; Kệ (Shelf) &rarr; Tầng (Tier)
+                                &rarr; Vị trí (Location).</div>
                         </a>
                     </div>
                 @endif
 
                 @if ($canViewMaster)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.materData.department.list') }}" class="home-card">
                             <div class="home-card-header">
-                                <div class="home-card-icon" style="background: rgba(0, 58, 79, 0.08); color: var(--primary-navy);">
+                                <div class="home-card-icon"
+                                    style="background: rgba(0, 58, 79, 0.08); color: var(--primary-navy);">
                                     <i class="fas fa-database"></i>
                                 </div>
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Dữ Liệu Gốc</div>
-                            <div class="home-card-desc">Quản lý danh mục phòng ban, trạng thái tài liệu và danh mục loại hồ sơ.</div>
+                            <div class="home-card-desc">Quản lý danh mục phòng ban, trạng thái tài liệu và danh mục loại hồ
+                                sơ.</div>
                         </a>
                     </div>
                 @endif
 
                 @if ($canViewRouting)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.documentStorage.routing.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(40, 167, 69, 0.1); color: #28a745;">
@@ -200,13 +212,14 @@
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Luân Chuyển Hồ Sơ</div>
-                            <div class="home-card-desc">Theo dõi quy trình tiếp nhận, chuyển giao và hoàn trả hồ sơ giữa các phòng ban.</div>
+                            <div class="home-card-desc">Theo dõi quy trình tiếp nhận, chuyển giao và hoàn trả hồ sơ giữa
+                                các phòng ban.</div>
                         </a>
                     </div>
                 @endif
 
                 @if ($canViewPolicy)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.User.user.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">
@@ -215,13 +228,14 @@
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Phân Quyền & Người Dùng</div>
-                            <div class="home-card-desc">Quản lý tài khoản, vai trò và phân quyền ma trận truy cập chi tiết.</div>
+                            <div class="home-card-desc">Quản lý tài khoản, vai trò và phân quyền ma trận truy cập chi tiết.
+                            </div>
                         </a>
                     </div>
                 @endif
 
                 @if ($canViewAudit)
-                    <div class="col-12 col-sm-6 col-md-4 col-xl-4">
+                    <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
                         <a href="{{ route('pages.AuditTrail.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(100, 116, 139, 0.1); color: #64748b;">
@@ -230,7 +244,8 @@
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
                             <div class="home-card-title">Audit Trail</div>
-                            <div class="home-card-desc">Nhật ký lịch sử kiểm tra vết thao tác, bảo đảm tính toàn vẹn dữ liệu hệ thống.</div>
+                            <div class="home-card-desc">Nhật ký lịch sử kiểm tra vết thao tác, bảo đảm tính toàn vẹn dữ
+                                liệu hệ thống.</div>
                         </a>
                     </div>
                 @endif
@@ -338,9 +353,20 @@
         }
 
         @keyframes pulseDot {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 7px rgba(16, 185, 129, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
         }
 
         .home-hero-title {
@@ -417,8 +443,15 @@
         }
 
         @keyframes floatSlow {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-6px);
+            }
         }
 
         .hero-icon-bubble {
@@ -614,6 +647,7 @@
             .home-hero {
                 padding: 24px 20px;
             }
+
             .home-hero-title {
                 font-size: 1.35rem;
             }

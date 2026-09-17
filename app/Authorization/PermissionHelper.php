@@ -13,13 +13,29 @@ if (! function_exists('user_has_permission')) {
         } else {
             static $userPermissions = [];
             if (! isset($userPermissions[$userId])) {
-                $userPermissions[$userId] = DB::table('permissions')
-                    ->join('role_permission', 'permissions.id', '=', 'role_permission.permission_id')
-                    ->join('user_role', 'role_permission.role_id', '=', 'user_role.role_id')
-                    ->where('user_role.user_id', $userId)
-                    ->pluck('permissions.name')
-                    ->flip()
+                $roleIds = DB::table('user_role')
+                    ->where('user_id', $userId)
+                    ->pluck('role_id')
                     ->all();
+
+                $primaryGroup = DB::table('user_management')->where('id', $userId)->value('userGroup');
+                if ($primaryGroup) {
+                    $primaryRoleId = DB::table('roles')->where('name', $primaryGroup)->value('id');
+                    if ($primaryRoleId && !in_array($primaryRoleId, $roleIds)) {
+                        $roleIds[] = $primaryRoleId;
+                    }
+                }
+
+                if (!empty($roleIds)) {
+                    $userPermissions[$userId] = DB::table('permissions')
+                        ->join('role_permission', 'permissions.id', '=', 'role_permission.permission_id')
+                        ->whereIn('role_permission.role_id', $roleIds)
+                        ->pluck('permissions.name')
+                        ->flip()
+                        ->all();
+                } else {
+                    $userPermissions[$userId] = [];
+                }
             }
 
             $result = isset($userPermissions[$userId][$permissionName]);
