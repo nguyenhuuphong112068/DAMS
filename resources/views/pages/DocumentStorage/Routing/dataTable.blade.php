@@ -224,8 +224,8 @@
                             <td>
                                 @if ($data->final_location_id)
                                     <small>
-                                        {{ $data->warehouse_name }} / {{ $data->room_name }} /
-                                        {{ $data->shelf_name }} / <b>{{ $data->location_name }}</b>
+                                        {{ $data->warehouse_name }} / {{ $data->shelf_name }} /
+                                        {{ $data->tier_name }} / <b>{{ $data->location_name }}</b>
                                     </small>
                                 @else
                                     <span class="text-muted">-</span>
@@ -312,8 +312,8 @@
                                             <span class="who">Kết thúc - Lưu trữ</span>
                                             <span class="badge badge-success ml-1">Hoàn tất</span>
                                             <div class="meta">
-                                                Vị trí: {{ $data->warehouse_name }} / {{ $data->room_name }} /
-                                                {{ $data->shelf_name }} / <b>{{ $data->location_name }}</b>
+                                                Vị trí: {{ $data->warehouse_name }} / {{ $data->shelf_name }} /
+                                                {{ $data->tier_name }} / <b>{{ $data->location_name }}</b>
                                                 &nbsp;|&nbsp; Bởi: {{ $data->completed_by }}
                                                 lúc
                                                 {{ $data->completed_at ? \Carbon\Carbon::parse($data->completed_at)->format('d/m/Y H:i') : '' }}

@@ -15,7 +15,7 @@ class WarehouseController extends Controller
             ->where('department_id', session('user')['selected_department_id'])
             ->leftJoin('deparments', 'warehouses.department_id', '=', 'deparments.id')
             ->select('warehouses.*', 'deparments.name as department_name')
-            ->orderBy('warehouses.name', 'asc')
+            ->orderBy('warehouses.code', 'asc')
             ->get();
 
         $departments = DB::table('deparments')->where('active', true)->get();

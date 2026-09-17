@@ -28,18 +28,24 @@ Route::prefix('/User')
     ->name('permission.')
     ->controller(PermissionContoller::class)
     ->group(function(){
-        Route::get('','index')->name('list');    
+        Route::get('','index')->name('list');
+        Route::post('store','store')->name('store');
+        Route::post('update','update')->name('update');
+        Route::post('destroy/{id}','destroy')->name('destroy');
     });
 
-    
+
     Route::prefix('/role')
     ->name('role.')
     ->controller(RoleController::class)
     ->group(function(){
-        
+
         Route::get('','index')->name('list');
+        Route::post('store','store')->name('store');
+        Route::post('update','update')->name('update');
+        Route::post('destroy/{id}','destroy')->name('destroy');
         Route::post('store_or_update','store_or_update')->name('store_or_update');
-        
+
     });
 
 

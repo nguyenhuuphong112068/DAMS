@@ -23,7 +23,7 @@
                     </div>
                     <div class="form-group">
                         <label>Thuộc Kho</label>
-                        <select name="warehouse_id" class="form-control">
+                        <select name="warehouse_id" id="create_loc_wh" class="form-control">
                             <option value="">-- Không chọn --</option>
                             @foreach ($warehouses as $wh)
                                 <option value="{{ $wh->id }}">{{ $wh->name }}</option>
@@ -31,30 +31,35 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thuộc Phòng</label>
-                        <select name="room_id" class="form-control">
+                        <label>Thuộc Kệ (Shelf)</label>
+                        <select name="shelf_id" id="create_loc_shelf" class="form-control">
                             <option value="">-- Không chọn --</option>
-                            @foreach ($rooms as $rm)
-                                <option value="{{ $rm->id }}">{{ $rm->name }}</option>
+                            @foreach ($shelves as $sh)
+                                <option value="{{ $sh->id }}" data-wh="{{ $sh->warehouse_id }}">{{ $sh->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thuộc Kệ (Shelf)</label>
-                        <select name="shelf_id" class="form-control">
+                        <label>Thuộc Tầng (Tier)</label>
+                        <select name="tier_id" id="create_loc_tier" class="form-control">
                             <option value="">-- Không chọn --</option>
-                            @foreach ($shelves as $sh)
-                                <option value="{{ $sh->id }}">{{ $sh->name }}</option>
+                            @foreach ($tiers as $t)
+                                <option value="{{ $t->id }}" data-shelf="{{ $t->shelf_id }}" data-wh="{{ $t->warehouse_id }}">{{ $t->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Mã Vị trí <span class="text-danger">*</span></label>
-                        <input type="text" name="code" class="form-control" required>
+                        <input type="text" name="code" class="form-control" placeholder="VD: VT-01" required>
                     </div>
                     <div class="form-group">
                         <label>Tên Vị trí <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" required>
+                        <input type="text" name="name" class="form-control" placeholder="VD: Hộp 01 / Ngăn 01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Thứ Tự Ô Trong Tầng</label>
+                        <input type="number" name="position" class="form-control" min="1" placeholder="VD: 1">
+                        <small class="form-text text-muted">Quyết định ô nằm ở cột thứ mấy trên sơ đồ kho.</small>
                     </div>
                 </div>
                 <div class="modal-footer">

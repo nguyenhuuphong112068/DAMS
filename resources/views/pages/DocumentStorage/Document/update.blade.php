@@ -1,5 +1,5 @@
 <div class="modal fade" id="updateModal" tabindex="-1" role="dialog" aria-labelledby="updateModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header bg-warning">
                 <h5 class="modal-title" id="updateModalLabel">Cập nhật Tài Liệu</h5>
@@ -22,11 +22,6 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Mã Tài liệu <span class="text-danger">*</span></label>
-                        <input type="text" name="code" id="update_code" class="form-control" required>
-                    </div>
-
-                    <div class="form-group">
                         <label>Tên Tài liệu <span class="text-danger">*</span></label>
                         <input type="text" name="name" id="update_name" class="form-control" required>
                     </div>
@@ -38,11 +33,6 @@
                                 <option value="{{ $type->id }}">{{ $type->name }}</option>
                             @endforeach
                         </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Người sở hữu / Chịu trách nhiệm</label>
-                        <input type="text" name="owner" id="update_owner" class="form-control" placeholder="Tên người sở hữu">
                     </div>
 
                     <div class="form-group">
@@ -73,11 +63,11 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Phòng <span class="text-danger">*</span></label>
-                                <select id="update_room_id" class="form-control" required>
-                                    <option value="">-- Chọn Phòng --</option>
-                                    @foreach ($rooms as $room)
-                                        <option value="{{ $room->id }}" data-warehouse="{{ $room->warehouse_id }}">{{ $room->name }}</option>
+                                <label>Kệ <span class="text-danger">*</span></label>
+                                <select id="update_shelf_id" class="form-control" required>
+                                    <option value="">-- Chọn Kệ --</option>
+                                    @foreach ($shelves as $shelf)
+                                        <option value="{{ $shelf->id }}" data-warehouse="{{ $shelf->warehouse_id }}">{{ $shelf->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -87,11 +77,11 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Kệ <span class="text-danger">*</span></label>
-                                <select id="update_shelf_id" class="form-control" required>
-                                    <option value="">-- Chọn Kệ --</option>
-                                    @foreach ($shelves as $shelf)
-                                        <option value="{{ $shelf->id }}" data-room="{{ $shelf->room_id }}">{{ $shelf->name }}</option>
+                                <label>Tầng <span class="text-danger">*</span></label>
+                                <select id="update_tier_id" class="form-control" required>
+                                    <option value="">-- Chọn Tầng --</option>
+                                    @foreach ($tiers as $tier)
+                                        <option value="{{ $tier->id }}" data-shelf="{{ $tier->shelf_id }}" data-warehouse="{{ $tier->warehouse_id }}">{{ $tier->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -101,10 +91,10 @@
                                 <label>Vị trí chi tiết <span class="text-danger">*</span></label>
                                 <select name="location_id" id="update_location_id" class="form-control" required>
                                     <option value="">-- Chọn Vị trí --</option>
-                                    @foreach ($locations as $loc)
-                                        <option value="{{ $loc->id }}" data-shelf="{{ $loc->shelf_id }}">{{ $loc->name }}</option>
-                                    @endforeach
                                 </select>
+                                @if($errors->updateErrors->has('location_id'))
+                                    <span class="text-danger small">{{ $errors->updateErrors->first('location_id') }}</span>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -114,12 +104,6 @@
                             <div class="form-group">
                                 <label>Ngày hết hạn</label>
                                 <input type="date" name="expired_date" id="update_expired" class="form-control">
-                            </div>
-                        </div>
-                        <div class="col-md-6 d-flex align-items-center">
-                            <div class="custom-control custom-switch mt-3">
-                                <input type="checkbox" name="is_private" class="custom-control-input" id="update_is_private">
-                                <label class="custom-control-label font-weight-bold" for="update_is_private">Tài liệu nội bộ (Riêng tư)</label>
                             </div>
                         </div>
                     </div>
@@ -160,26 +144,7 @@
             if (fileNameDisplay) fileNameDisplay.textContent = '';
             if (fileInput) fileInput.value = '';
         });
-        // Cascading Logic for Update
-        const warehouseSelect = $('#update_warehouse_id');
-        const roomSelect = $('#update_room_id');
-        const shelfSelect = $('#update_shelf_id');
-        const locationSelect = $('#update_location_id');
-
-        warehouseSelect.on('change', function() {
-            const whId = $(this).val();
-            roomSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-warehouse') == whId).show();
-            // Don't clear room/shelf/location if we are just loading for the first time
-        });
-
-        roomSelect.on('change', function() {
-            const roomId = $(this).val();
-            shelfSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-room') == roomId).show();
-        });
-
-        shelfSelect.on('change', function() {
-            const shelfId = $(this).val();
-            locationSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-shelf') == shelfId).show();
-        });
+        // Kho > Kệ > Tầng > Vị trí: chọn cấp thấp tự điền cấp cao
+        window.updateStorageCascade = initStorageCascade('update', $('#updateModal'));
     });
 </script>

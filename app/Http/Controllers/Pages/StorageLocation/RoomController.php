@@ -16,7 +16,7 @@ class RoomController extends Controller
             ->leftJoin('deparments', 'rooms.department_id', '=', 'deparments.id')
             ->leftJoin('warehouses', 'rooms.warehouse_id', '=', 'warehouses.id')
             ->select('rooms.*', 'deparments.name as department_name', 'warehouses.name as warehouse_name')
-            ->orderBy('rooms.name', 'asc')
+            ->orderBy('rooms.code', 'asc')
             ->get();
 
         $departments = DB::table('deparments')->where('active', true)->get();

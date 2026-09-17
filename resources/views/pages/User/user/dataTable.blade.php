@@ -10,7 +10,8 @@
         <div class="card-body">
 
             <button class="btn btn-success btn-create mb-2" data-toggle="modal" data-target="#createModal"
-                style="width: 155px">
+                style="width: 155px"
+                {{ user_has_permission(session('user')['userId'], 'user.create', 'disabled') }}>
                 <i class="fas fa-plus"></i> Thêm
             </button>
 
@@ -49,7 +50,8 @@
                                     data-username="{{ $data->userName }}" data-usergroup='@json($data->role_ids)'
                                     data-fullname="{{ $data->fullName }}" data-deparment="{{ $data->deparment }}"
                                     data-mail="{{ $data->mail }}"
-                                    data-toggle="modal" data-target="#UpdateModal">
+                                    data-toggle="modal" data-target="#UpdateModal"
+                                    {{ user_has_permission(session('user')['userId'], 'user.update', 'disabled') }}>
                                     <i class="fas fa-edit"></i>
                                 </button>
                             </td>
@@ -61,7 +63,8 @@
                                     action="{{ route('pages.User.user.deActive', ['id' => $data->id]) }}"
                                     method="post">
                                     @csrf
-                                    <button type="submit" class="btn btn-danger" data-name="{{ $data->userName }}">
+                                    <button type="submit" class="btn btn-danger" data-name="{{ $data->userName }}"
+                                        {{ user_has_permission(session('user')['userId'], 'user.deActive', 'disabled') }}>
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </form>

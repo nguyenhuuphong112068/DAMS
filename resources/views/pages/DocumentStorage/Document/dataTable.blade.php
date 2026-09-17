@@ -1,97 +1,4 @@
 <style>
-    /* Card Grid Styles */
-    .document-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-        margin-top: 15px;
-    }
-
-    .document-card {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        padding: 20px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        border-top: 4px solid #3b82f6;
-        /* Blue for Document */
-        position: relative;
-    }
-
-    .document-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    }
-
-    .document-card .icon {
-        font-size: 2.5rem;
-        color: #3b82f6;
-        margin-bottom: 15px;
-        opacity: 0.8;
-    }
-
-    .document-card .code {
-        font-size: 0.8rem;
-        color: #64748b;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .document-card .name {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 5px 0 10px;
-    }
-
-    .document-card .info-row {
-        font-size: 0.85rem;
-        color: #475569;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        margin-bottom: 3px;
-    }
-
-    .document-card .status {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-    }
-
-    .document-card .actions {
-        margin-top: 20px;
-        padding-top: 15px;
-        border-top: 1px solid #f1f5f9;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-    }
-
-    .view-toggle {
-        display: flex;
-        background: #f1f5f9;
-        padding: 5px;
-        border-radius: 8px;
-        gap: 5px;
-    }
-
-    .view-toggle button {
-        border: none;
-        background: transparent;
-        padding: 5px 10px;
-        border-radius: 6px;
-        color: #64748b;
-        transition: all 0.3s;
-    }
-
-    .view-toggle button.active {
-        background: white;
-        color: #3b82f6;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
-
     .truncate {
         white-space: nowrap;
         overflow: hidden;
@@ -99,381 +6,208 @@
         display: inline-block;
     }
 
-    /* Search Section Styles */
+    /* Thanh lọc gọn */
     .search-section {
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        padding: 20px;
-        margin-bottom: 25px;
-        border-left: 5px solid #3b82f6;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        padding: 10px 12px 4px;
+        margin-bottom: 12px;
+        border-left: 4px solid #3b82f6;
     }
 
-    .search-title {
-        font-size: 1.1rem;
+    .search-section .search-title {
+        font-size: 0.9rem;
         font-weight: 700;
         color: #1e293b;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        white-space: nowrap;
+    }
+
+    .search-section .form-row > [class*="col"] {
+        margin-bottom: 6px;
+    }
+
+    .search-section .form-control,
+    .search-section .btn {
+        height: 32px;
+        font-size: 0.85rem;
+    }
+
+    .search-section .select2-container--bootstrap4 .select2-selection--single {
+        height: 32px !important;
+        font-size: 0.85rem;
+    }
+
+    .search-section .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+        line-height: 30px;
+        padding-left: 8px;
+    }
+
+    .search-section .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+        height: 30px;
+    }
+
+    .document-tabs .nav-link {
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .document-tabs .nav-link.active {
+        color: #003a4f;
+    }
+
+    #data_table_document td,
+    #data_table_disposal td {
+        vertical-align: middle;
     }
 </style>
 
 <div class="content-wrapper">
-    <div class="search-section mt-4 mx-3">
-        <div class="search-title d-flex align-items-center justify-content-between">
-            <div><i class="fas fa-search text-primary"></i> TÌM KIẾM TÀI LIỆU NHANH</div>
-            @if($expiredCount > 0)
-                <div class="badge badge-danger p-2 animate__animated animate__pulse animate__infinite" style="font-size: 0.9rem; cursor: pointer;" id="btn-filter-expired">
-                    <i class="fas fa-exclamation-triangle"></i> Có {{ $expiredCount }} tài liệu đã hết hạn!
-                </div>
+    <ul class="nav nav-tabs document-tabs mt-3 mx-3" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="tab-documents-link" data-toggle="tab" href="#tab-documents" role="tab">
+                <i class="fas fa-folder-open"></i> Danh sách tài liệu
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="tab-disposals-link" data-toggle="tab" href="#tab-disposals" role="tab">
+                <i class="fas fa-history"></i> Lịch sử huỷ hồ sơ
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+    <div class="tab-pane fade show active" id="tab-documents" role="tabpanel">
+    <div class="search-section mt-3 mx-3">
+        <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+            <div class="search-title mr-auto"><i class="fas fa-search text-primary"></i> TÌM KIẾM TÀI LIỆU</div>
+            @if ($expiredCount > 0)
+                <span class="badge badge-danger px-2 py-1" style="font-size: 0.8rem; cursor: pointer;"
+                    id="btn-filter-expired" title="Lọc tài liệu đã hết hạn">
+                    <i class="fas fa-exclamation-triangle"></i> {{ $expiredCount }} tài liệu hết hạn
+                </span>
+            @endif
+            <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#createModal"
+                style="font-weight: 600;"
+                {{ user_has_permission(session('user')['userId'], 'document.create', 'disabled') }}>
+                <i class="fas fa-plus-circle"></i> THÊM TÀI LIỆU
+            </button>
+            @if (isset(session('user')['userGroup']) && session('user')['userGroup'] == 'Admin')
+                <button class="btn btn-dark btn-sm" id="btn-config-camera" style="font-weight: 600;"
+                    title="Cấu hình camera cho mạng nội bộ">
+                    <i class="fas fa-tools"></i> CÀI ĐẶT CAMERA
+                </button>
             @endif
         </div>
-        <div class="row g-3">
-            <div class="col-md-4">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Từ khóa (Tên, Mã, QR Code)</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            {{-- <span class="input-group-text bg-light border-right-0"><i class="fas fa-qrcode"></i></span> --}}
-                            <button class="btn btn-primary" id="btn-scan-qr" type="button" title="Quét mã bằng Camera">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                        </div>
-                        <input type="text" id="quick-search-input" class="form-control"
-                            placeholder="Nhập tên hoặc quét mã QR...">
-                        <div class="input-group-append">
-
-                        </div>
+        <div class="form-row">
+            <div class="col-lg-3 col-md-6">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <button class="btn btn-primary" id="btn-scan-qr" type="button" title="Quét mã bằng Camera">
+                            <i class="fas fa-camera"></i>
+                        </button>
                     </div>
+                    <input type="text" id="quick-search-input" class="form-control"
+                        placeholder="Tên, mã hoặc quét QR...">
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Loại tài liệu</label>
-                    <select id="filter-type" class="form-control select2">
-                        <option value="">-- Tất cả loại --</option>
-                        @foreach ($document_types as $type)
-                            <option value="{{ $type->name }}">{{ $type->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div class="col-lg col-md-3 col-6">
+                <select id="filter-type" class="form-control select2" style="width: 100%;">
+                    <option value="">Tất cả loại</option>
+                    @foreach ($document_types as $type)
+                        <option value="{{ $type->id }}">{{ $type->name }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div class="col-md-3">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Trạng thái hiệu lực</label>
-                    <select id="filter-expiry-status" class="form-control select2">
-                        <option value="all">-- Tất cả --</option>
-                        <option value="valid">Còn hiệu lực</option>
-                        <option value="expired">Đã hết hạn</option>
-                    </select>
-                </div>
+            <div class="col-lg col-md-3 col-6">
+                <select id="filter-expiry-status" class="form-control select2" style="width: 100%;">
+                    <option value="">Tất cả hiệu lực</option>
+                    <option value="valid">Còn hiệu lực</option>
+                    <option value="expired">Đã hết hạn</option>
+                </select>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="button" class="btn btn-outline-secondary w-100" id="btn-reset-filter"
-                    style="height: 38px;">
-                    <i class="fas fa-sync-alt"></i> Reset
+            <div class="col-lg col-md-3 col-6">
+                <select id="filter-warehouse" class="form-control select2" style="width: 100%;">
+                    <option value="">Tất cả kho</option>
+                    @foreach ($warehouses as $w)
+                        <option value="{{ $w->id }}">{{ $w->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-lg col-md-3 col-6">
+                <select id="filter-shelf" class="form-control select2" style="width: 100%;">
+                    <option value="">Tất cả kệ</option>
+                </select>
+            </div>
+            <div class="col-lg col-md-3 col-6">
+                <select id="filter-tier" class="form-control select2" style="width: 100%;">
+                    <option value="">Tất cả tầng</option>
+                </select>
+            </div>
+            <div class="col-lg col-md-3 col-6">
+                <select id="filter-location" class="form-control select2" style="width: 100%;">
+                    <option value="">Tất cả vị trí</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-outline-secondary" id="btn-reset-filter" title="Xóa bộ lọc">
+                    <i class="fas fa-sync-alt"></i>
                 </button>
-            </div>
-        </div>
-        <div class="row g-3 mt-2 pt-2 border-top">
-            <div class="col-md-3">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Kho</label>
-                    <select id="filter-warehouse" class="form-control select2">
-                        <option value="">-- Tất cả kho --</option>
-                        @foreach ($warehouses as $w)
-                            <option value="{{ $w->name }}">{{ $w->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Phòng</label>
-                    <select id="filter-room" class="form-control select2">
-                        <option value="">-- Tất cả phòng --</option>
-                        @foreach ($rooms as $r)
-                            <option value="{{ $r->name }}">{{ $r->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Kệ</label>
-                    <select id="filter-shelf" class="form-control select2">
-                        <option value="">-- Tất cả kệ --</option>
-                        @foreach ($shelves as $s)
-                            <option value="{{ $s->name }}">{{ $s->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="form-group mb-0">
-                    <label class="small font-weight-bold text-muted">Vị trí chi tiết</label>
-                    <select id="filter-location" class="form-control select2">
-                        <option value="">-- Tất cả vị trí --</option>
-                        @foreach ($locations as $loc)
-                            <option value="{{ $loc->name }}">{{ $loc->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
             </div>
         </div>
     </div>
 
     <div class="card shadow-none bg-transparent mx-3">
         <div class="card-body p-0">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="d-flex align-items-center">
-                    <button class="btn btn-primary" data-toggle="modal" data-target="#createModal"
-                        style="width: 170px; border-radius: 8px; font-weight: 600;">
-                        <i class="fas fa-plus-circle"></i> THÊM TÀI LIỆU
-                    </button>
-                    @if (isset(session('user')['userGroup']) && session('user')['userGroup'] == 'Admin')
-                        <button class="btn btn-dark shadow-sm ml-2" id="btn-config-camera"
-                            style="border-radius: 8px; font-weight: 600;" title="Cấu hình camera cho mang nội bộ">
-                            <i class="fas fa-tools"></i> CÀI ĐẶT CAMERA
-                        </button>
-                    @endif
-                </div>
+            <table id="data_table_document" class="table table-bordered table-striped w-100">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Vị trí lưu trữ</th>
+                        <th class="text-center">QR Code</th>
+                        <th>Tên Tài liệu</th>
+                        <th>Loại Tài liệu</th>
+                        <th>Ngày hết hạn</th>
+                        <th>Trạng Thái</th>
+                        <th>Thao Tác</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+    </div>
 
-
-                <div class="view-toggle">
-                    <button type="button" id="btn-grid-view" class="active" title="Xem dạng lưới">
-                        <i class="fas fa-th-large"></i>
-                    </button>
-                    <button type="button" id="btn-table-view" title="Xem dạng bảng">
-                        <i class="fas fa-list"></i>
-                    </button>
+    <div class="tab-pane fade" id="tab-disposals" role="tabpanel">
+        <div class="search-section mt-3 mx-3" style="border-left-color: #dc3545;">
+            <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+                <div class="search-title mr-auto"><i class="fas fa-history text-danger"></i> LỊCH SỬ HUỶ HỒ SƠ</div>
+            </div>
+            <div class="form-row">
+                <div class="col-lg-4 col-md-6">
+                    <input type="text" id="disposal-search-input" class="form-control"
+                        placeholder="Mã, tên hồ sơ, vị trí, lý do, người huỷ...">
                 </div>
             </div>
+        </div>
 
-            <!-- Grid View -->
-            <div id="document-grid-view" class="document-grid">
-                @foreach ($datas as $data)
-                    <div class="document-card {{ $data->is_expired ? 'border-danger' : '' }}" data-is-expired="{{ $data->is_expired ? 'true' : 'false' }}">
-                        <div class="status">
-                            @if ($data->status_id == 1)
-                                <span class="badge badge-success">Sử dụng</span>
-                            @else
-                                <span class="badge badge-danger">Ngưng</span>
-                            @endif
-                        </div>
-                        <div class="icon">
-                            <i class="fas fa-file-contract"></i>
-                        </div>
-                        <div class="code">{{ $data->code }}</div>
-                        <div class="qr-code-small" id="qr-grid-{{ $data->id }}" data-code="{{ $data->code }}"
-                            style="position: absolute; top: 15px; right: 80px; background: white; padding: 2px; border: 1px solid #eee; border-radius: 4px; cursor: pointer;"
-                            onclick="printQRCode('{{ $data->code }}', '{{ $data->name }}', 'qr-grid-{{ $data->id }}')"
-                            title="Click để in mã QR"></div>
-                        <div class="name">{{ $data->name }}</div>
-                        <div class="info-row">
-                            <i class="fas fa-building text-info"></i>
-                            Bộ phận: {{ $data->department_name }}
-                        </div>
-                        <div class="info-row">
-                            <i class="fas fa-user-tie text-secondary"></i>
-                            Sở hữu: {{ $data->owner ?? 'N/A' }}
-                        </div>
-                        <div class="info-row">
-                            <i class="fas fa-tags text-primary"></i>
-                            @php
-                                $typeIds = json_decode($data->document_types_id) ?? [];
-                                $typeNames = $document_types->whereIn('id', $typeIds)->pluck('name')->toArray();
-                            @endphp
-                            Loại: {{ !empty($typeNames) ? implode(', ', $typeNames) : 'N/A' }}
-                        </div>
-                        <div class="info-row">
-                            <i class="fas fa-map-marker-alt text-danger"></i>
-                            Vị trí: {{ $data->location_name ?? 'N/A' }}
-                        </div>
-                        @if ($data->filepath)
-                            <div class="info-row">
-                                <i class="fas fa-link text-primary"></i>
-                                <a href="{{ strpos($data->filepath, 'http') === 0 ? $data->filepath : asset($data->filepath) }}"
-                                    target="_blank" class="text-primary truncate" style="max-width: 200px">File đính
-                                    kèm</a>
-                            </div>
-                        @endif
-                        @if ($data->expired_date)
-                            <div class="info-row {{ $data->is_expired ? 'text-danger font-weight-bold' : '' }}">
-                                <i class="fas fa-calendar-times {{ $data->is_expired ? 'text-danger' : 'text-warning' }}"></i>
-                                @if($data->is_expired) <span class="mr-1">[HẾT HẠN]</span> @endif
-                                {{ \Carbon\Carbon::parse($data->expired_date)->format('d/m/Y') }}
-                            </div>
-                        @endif
-                        @if ($data->is_private)
-                            <div class="info-row mt-2">
-                                <span class="badge badge-pill badge-dark"><i class="fas fa-eye-slash"></i> Riêng
-                                    tư</span>
-                            </div>
-                        @endif
-                        <div class="actions">
-                            <button type="button" class="btn btn-sm btn-info btn-view-details"
-                                data-id="{{ $data->id }}" data-code="{{ $data->code }}"
-                                data-name="{{ $data->name }}" data-owner="{{ $data->owner }}"
-                                data-filepath="{{ $data->filepath }}" data-dept="{{ $data->department_name }}"
-                                data-location="{{ $data->location_name }}"
-                                data-warehouse="{{ $data->warehouse_name ?? 'N/A' }}"
-                                data-room="{{ $data->room_name ?? 'N/A' }}"
-                                data-shelf="{{ $data->shelf_name ?? 'N/A' }}"
-                                data-expired="{{ $data->expired_date ? \Carbon\Carbon::parse($data->expired_date)->format('d/m/Y') : 'N/A' }}"
-                                data-private="{{ $data->is_private }}"
-                                data-types="{{ !empty($typeNames) ? implode(', ', $typeNames) : 'N/A' }}"
-                                data-status="{{ $data->status_id == 1 ? 'Sử dụng' : 'Ngưng' }}" title="Xem chi tiết">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            @if ($data->filepath)
-                                <a href="{{ strpos($data->filepath, 'http') === 0 ? $data->filepath : asset($data->filepath) }}"
-                                    target="_blank" class="btn btn-sm btn-primary" title="Xem File đính kèm">
-                                    <i class="fas fa-file-download"></i>
-                                </a>
-                            @endif
-                            <button type="button" class="btn btn-sm btn-warning btn-edit"
-                                data-id="{{ $data->id }}" data-code="{{ $data->code }}"
-                                data-name="{{ $data->name }}" data-owner="{{ $data->owner }}"
-                                data-filepath="{{ $data->filepath }}" data-dept="{{ $data->department_id }}"
-                                data-location="{{ $data->location_id }}"
-                                data-warehouse="{{ $data->warehouse_id }}"
-                                data-room="{{ $data->room_id }}"
-                                data-shelf="{{ $data->shelf_id }}"
-                                data-expired="{{ $data->expired_date }}"
-                                data-private="{{ $data->is_private }}" data-types="{{ $data->document_types_id }}"
-                                data-toggle="modal" data-target="#updateModal" title="Sửa">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <form class="d-inline" action="{{ route('pages.documentStorage.document.deActive') }}"
-                                method="POST">
-                                @csrf
-                                <input type="hidden" name="id" value="{{ $data->id }}">
-                                <input type="hidden" name="status_id" value="{{ $data->status_id }}">
-                                <button type="submit"
-                                    class="btn btn-sm btn-{{ $data->status_id == 1 ? 'danger' : 'success' }}"
-                                    title="{{ $data->status_id == 1 ? 'Khoá' : 'Mở' }}">
-                                    <i class="fas fa-{{ $data->status_id == 1 ? 'lock' : 'unlock' }}"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-
-            <!-- Table View -->
-            <div id="document-table-view" class="d-none">
-                <table id="data_table_document" class="table table-bordered table-striped w-100">
+        <div class="card shadow-none bg-transparent mx-3">
+            <div class="card-body p-0">
+                <table id="data_table_disposal" class="table table-bordered table-striped w-100">
                     <thead>
                         <tr>
                             <th>STT</th>
-                            <th>Mã Tài liệu</th>
-                            <th class="text-center">QR Code</th>
+                            <th>Vị trí đã trả</th>
                             <th>Tên Tài liệu</th>
-                            <th>Người sở hữu</th>
                             <th>Loại Tài liệu</th>
-                            <th>Vị trí lưu trữ</th>
-                            <th>Ngày hết hạn</th>
-                            <th>Riêng tư</th>
-                            <th>Trạng Thái</th>
-                            <th>Thao Tác</th>
+                            <th>Lý do huỷ</th>
+                            <th>Người huỷ</th>
+                            <th>Thời gian huỷ</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        @foreach ($datas as $data)
-                            <tr class="{{ $data->is_expired ? 'table-danger' : '' }}" data-is-expired="{{ $data->is_expired ? 'true' : 'false' }}">
-                                <td>{{ $loop->iteration }}</td>
-                                <td>{{ $data->code }}</td>
-                                <td class="text-center">
-                                    <div class="qr-code-table d-inline-block" id="qr-table-{{ $data->id }}"
-                                        data-code="{{ $data->code }}" style="cursor: pointer"
-                                        onclick="printQRCode('{{ $data->code }}', '{{ $data->name }}', 'qr-table-{{ $data->id }}')"
-                                        title="Click để in"></div>
-                                </td>
-                                <td>{{ $data->name }}</td>
-                                <td>{{ $data->owner }}</td>
-                                <td>
-                                    @php
-                                        $typeIds = json_decode($data->document_types_id) ?? [];
-                                        $typeNames = $document_types->whereIn('id', $typeIds)->pluck('name')->toArray();
-                                    @endphp
-                                    {{ !empty($typeNames) ? implode(', ', $typeNames) : '-' }}
-                                </td>
-                                <td>{{ $data->location_name }}</td>
-                                <td>{{ $data->expired_date ? \Carbon\Carbon::parse($data->expired_date)->format('d/m/Y') : '-' }}
-                                </td>
-                                <td class="text-center">
-                                    @if ($data->is_private)
-                                        <i class="fas fa-lock text-muted" title="Riêng tư"></i>
-                                    @else
-                                        <i class="fas fa-globe text-success" title="Công khai"></i>
-                                    @endif
-                                </td>
-                                <td class="text-center">
-                                    @if ($data->status_id == 1)
-                                        <span class="badge badge-success">Sử dụng</span>
-                                    @else
-                                        <span class="badge badge-danger">Ngưng</span>
-                                    @endif
-                                </td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-sm btn-info btn-view-details"
-                                        data-id="{{ $data->id }}" data-code="{{ $data->code }}"
-                                        data-name="{{ $data->name }}" data-owner="{{ $data->owner }}"
-                                        data-filepath="{{ $data->filepath }}"
-                                        data-dept="{{ $data->department_name }}"
-                                        data-location="{{ $data->location_name }}"
-                                        data-warehouse="{{ $data->warehouse_name ?? 'N/A' }}"
-                                        data-room="{{ $data->room_name ?? 'N/A' }}"
-                                        data-shelf="{{ $data->shelf_name ?? 'N/A' }}"
-                                        data-expired="{{ $data->expired_date ? \Carbon\Carbon::parse($data->expired_date)->format('d/m/Y') : 'N/A' }}"
-                                        data-private="{{ $data->is_private }}"
-                                        data-types="{{ !empty($typeNames) ? implode(', ', $typeNames) : 'N/A' }}"
-                                        data-status="{{ $data->status_id == 1 ? 'Sử dụng' : 'Ngưng' }}"
-                                        title="Xem chi tiết">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    @if ($data->filepath)
-                                        <a href="{{ strpos($data->filepath, 'http') === 0 ? $data->filepath : asset($data->filepath) }}"
-                                            target="_blank" class="btn btn-sm btn-primary" title="File">
-                                            <i class="fas fa-file-download"></i>
-                                        </a>
-                                    @endif
-                                    <button type="button" class="btn btn-sm btn-warning btn-edit"
-                                        data-id="{{ $data->id }}" data-code="{{ $data->code }}"
-                                        data-name="{{ $data->name }}" data-owner="{{ $data->owner }}"
-                                        data-filepath="{{ $data->filepath }}" data-dept="{{ $data->department_id }}"
-                                        data-location="{{ $data->location_id }}"
-                                        data-warehouse="{{ $data->warehouse_id }}"
-                                        data-room="{{ $data->room_id }}"
-                                        data-shelf="{{ $data->shelf_id }}"
-                                        data-expired="{{ $data->expired_date }}"
-                                        data-private="{{ $data->is_private }}"
-                                        data-types="{{ $data->document_types_id }}" data-toggle="modal"
-                                        data-target="#updateModal" title="Sửa">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <form class="d-inline"
-                                        action="{{ route('pages.documentStorage.document.deActive') }}"
-                                        method="POST">
-                                        @csrf
-                                        <input type="hidden" name="id" value="{{ $data->id }}">
-                                        <input type="hidden" name="status_id" value="{{ $data->status_id }}">
-                                        <button type="submit"
-                                            class="btn btn-sm btn-{{ $data->status_id == 1 ? 'danger' : 'success' }}"
-                                            title="Lock/Unlock">
-                                            <i class="fas fa-{{ $data->status_id == 1 ? 'lock' : 'unlock' }}"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
                 </table>
             </div>
         </div>
+    </div>
     </div>
 </div>
 
@@ -497,96 +231,406 @@
 @endif
 
 <script>
-    $(document).ready(function() {
-        const table = $('#data_table_document').DataTable({
-            autoWidth: false,
-            responsive: true
+    // Tải vị trí theo tầng (dùng chung cho bộ lọc và modal thêm/sửa). Bỏ qua response cũ nếu đổi tầng liên tục.
+    window.loadDocumentLocations = function($select, tierId, selectedId, placeholder) {
+        placeholder = placeholder || '-- Chọn Vị trí --';
+        const requestId = ($select.data('locationRequest') || 0) + 1;
+        $select.data('locationRequest', requestId);
+        $select.html(`<option value="">${placeholder}</option>`).val('');
+        if (!tierId) {
+            $select.trigger('change.select2');
+            return $.Deferred().resolve().promise();
+        }
+        return $.getJSON('{{ route('pages.documentStorage.document.locations') }}', {
+            tier_id: tierId,
+            include_id: selectedId || ''
+        }).done(function(items) {
+            if ($select.data('locationRequest') !== requestId) return;
+            items.forEach(item => $select.append($('<option>').val(item.id).text(item.name)));
+            if (selectedId) $select.val(String(selectedId));
+            $select.trigger('change.select2');
+        });
+    };
+
+    // Kho > Kệ > Tầng > Vị trí cho modal thêm/sửa. Chọn cấp thấp sẽ tự điền các cấp cao hơn;
+    // đổi cấp cao sẽ bỏ chọn các cấp thấp không còn thuộc về nó.
+    window.initStorageCascade = function(prefix, $modal) {
+        const $wh = $(`#${prefix}_warehouse_id`);
+        const $shelf = $(`#${prefix}_shelf_id`);
+        const $tier = $(`#${prefix}_tier_id`);
+        const $loc = $(`#${prefix}_location_id`);
+
+        const shelfToWarehouse = {};
+        $shelf.find('option[value!=""]').each(function() {
+            shelfToWarehouse[this.value] = $(this).attr('data-warehouse') || '';
+        });
+        const tierToShelf = {};
+        $tier.find('option[value!=""]').each(function() {
+            tierToShelf[this.value] = $(this).attr('data-shelf') || '';
         });
 
-        // Toggle View Logic
-        $('#btn-grid-view').click(function() {
-            $(this).addClass('active');
-            $('#btn-table-view').removeClass('active');
-            $('#document-grid-view').removeClass('d-none');
-            $('#document-table-view').addClass('d-none');
-        });
-
-        $('#btn-table-view').click(function() {
-            $(this).addClass('active');
-            $('#btn-grid-view').removeClass('active');
-            $('#document-grid-view').addClass('d-none');
-            $('#document-table-view').removeClass('d-none');
-            table.columns.adjust().draw();
-        });
-
-        // Search & Filter Logic
-        function applyFilters() {
-            const keyword = $('#quick-search-input').val().toLowerCase().trim();
-            const type = $('#filter-type').val();
-            const warehouse = $('#filter-warehouse').val();
-            const room = $('#filter-room').val();
-            const shelf = $('#filter-shelf').val();
-            const location = $('#filter-location').val();
-            const expiryStatus = $('#filter-expiry-status').val();
-
-            // Filter Table View
-            $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-                if (expiryStatus === 'all') return true;
-                const isExpired = $(table.row(dataIndex).node()).attr('data-is-expired') === 'true';
-                if (expiryStatus === 'expired') return isExpired;
-                if (expiryStatus === 'valid') return !isExpired;
-                return true;
+        // Chỉ hiện kệ/tầng thuộc cấp trên đang chọn; chưa chọn cấp trên thì hiện tất cả
+        function filterOptions() {
+            const whId = $wh.val();
+            const shelfId = $shelf.val();
+            $shelf.find('option').each(function() {
+                $(this).toggle(!this.value || !whId || shelfToWarehouse[this.value] == whId);
             });
-            table.search(keyword).draw();
-            $.fn.dataTable.ext.search.pop();
-
-            // Filter Grid View
-            $('.document-card').each(function() {
-                const card = $(this);
-                const name = card.find('.name').text().toLowerCase();
-                const code = card.find('.code').text().toLowerCase();
-                const cardText = card.text(); 
-                const cardIsExpired = card.attr('data-is-expired') === 'true';
-
-                let visible = true;
-
-                if (keyword && !name.includes(keyword) && !code.includes(keyword)) visible = false;
-                if (type && !cardText.includes(type)) visible = false;
-                if (warehouse && !cardText.includes(warehouse)) visible = false;
-                if (room && !cardText.includes(room)) visible = false;
-                if (shelf && !cardText.includes(shelf)) visible = false;
-                if (location && !cardText.includes(location)) visible = false;
-                
-                // Expiry status filter
-                if (expiryStatus === 'expired' && !cardIsExpired) visible = false;
-                if (expiryStatus === 'valid' && cardIsExpired) visible = false;
-
-                if (visible) {
-                    card.show();
-                } else {
-                    card.hide();
-                }
+            $tier.find('option').each(function() {
+                const tierShelf = tierToShelf[this.value];
+                const visible = !this.value || (shelfId ? tierShelf == shelfId : (!whId || shelfToWarehouse[tierShelf] == whId));
+                $(this).toggle(visible);
             });
         }
 
-        $('#quick-search-input').on('keyup', applyFilters);
-        $('#filter-location, #filter-type, #filter-warehouse, #filter-room, #filter-shelf, #filter-expiry-status').on('change',
-            applyFilters);
-        
+        function clearMismatchedLocation() {
+            const meta = $loc.data('meta');
+            if (!$loc.val() || !meta) return;
+            if (($tier.val() && meta.tier_id != $tier.val()) ||
+                ($shelf.val() && meta.shelf_id != $shelf.val()) ||
+                ($wh.val() && meta.warehouse_id != $wh.val())) {
+                $loc.data('meta', null).val(null).trigger('change');
+            }
+        }
+
+        $wh.on('change', function() {
+            const whId = $wh.val();
+            if (whId && $shelf.val() && shelfToWarehouse[$shelf.val()] != whId) $shelf.val('');
+            if (whId && $tier.val() && shelfToWarehouse[tierToShelf[$tier.val()]] != whId) $tier.val('');
+            clearMismatchedLocation();
+            filterOptions();
+        });
+
+        $shelf.on('change', function() {
+            const shelfId = $shelf.val();
+            if (shelfId) {
+                $wh.val(shelfToWarehouse[shelfId]);
+                if ($tier.val() && tierToShelf[$tier.val()] != shelfId) $tier.val('');
+            }
+            clearMismatchedLocation();
+            filterOptions();
+        });
+
+        $tier.on('change', function() {
+            const tierId = $tier.val();
+            if (tierId) {
+                $shelf.val(tierToShelf[tierId]);
+                $wh.val(shelfToWarehouse[tierToShelf[tierId]]);
+            }
+            clearMismatchedLocation();
+            filterOptions();
+        });
+
+        $loc.select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $modal,
+            placeholder: '-- Chọn Vị trí --',
+            allowClear: true,
+            language: {
+                noResults: () => 'Không tìm thấy vị trí',
+                searching: () => 'Đang tìm...',
+                loadingMore: () => 'Đang tải thêm...'
+            },
+            ajax: {
+                url: '{{ route('pages.documentStorage.document.locationSearch') }}',
+                dataType: 'json',
+                delay: 250,
+                data: params => ({
+                    q: params.term || '',
+                    page: params.page || 1,
+                    warehouse_id: $wh.val(),
+                    shelf_id: $shelf.val(),
+                    tier_id: $tier.val()
+                }),
+                processResults: data => data
+            },
+            templateResult: item => item.path
+                ? $('<div>').append($('<div>').text(item.text), $('<small class="text-muted">').text(item.path))
+                : item.text
+        });
+
+        $loc.on('select2:select', function(e) {
+            const item = e.params.data;
+            $loc.data('meta', item);
+            $wh.val(item.warehouse_id || '');
+            $shelf.val(item.shelf_id || '');
+            $tier.val(item.tier_id || '');
+            filterOptions();
+        });
+        $loc.on('select2:clear', () => $loc.data('meta', null));
+
+        filterOptions();
+
+        return {
+            // Điền sẵn vị trí hiện tại (modal sửa)
+            setLocation(item) {
+                $wh.val(item.warehouse_id || '');
+                $shelf.val(item.shelf_id || '');
+                $tier.val(item.tier_id || '');
+                $loc.empty().append(new Option('-- Chọn Vị trí --', '', false, false));
+                if (item.id) $loc.append(new Option(item.name, item.id, true, true));
+                $loc.data('meta', item.id ? item : null).trigger('change');
+                filterOptions();
+            }
+        };
+    };
+
+    $(document).ready(function() {
+        const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
+
+        // Dữ liệu phân cấp cho bộ lọc Kho > Kệ > Tầng > Vị trí
+        const filterShelves = {!! json_encode($shelves->map(fn($s) => ['id' => $s->id, 'name' => $s->name, 'warehouse_id' => $s->warehouse_id])->values(), JSON_HEX_TAG) !!};
+        const filterTiers = {!! json_encode($tiers->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'shelf_id' => $t->shelf_id])->values(), JSON_HEX_TAG) !!};
+
+        function fillOptions($select, items, placeholder) {
+            const current = $select.val();
+            let html = `<option value="">${placeholder}</option>`;
+            items.forEach(item => {
+                html += `<option value="${item.id}">${escapeHtml(item.name)}</option>`;
+            });
+            $select.html(html);
+            if (items.some(item => String(item.id) === current)) $select.val(current);
+        }
+
+        function refreshHierarchyOptions() {
+            const warehouse = $('#filter-warehouse').val();
+            // Kệ/Tầng/Vị trí chỉ hiện khi đã chọn cấp cha, tránh danh sách dài trùng tên
+            fillOptions($('#filter-shelf'), warehouse ? filterShelves.filter(s => String(s.warehouse_id) === warehouse) : [], 'Tất cả kệ');
+            const shelf = $('#filter-shelf').val();
+            fillOptions($('#filter-tier'), shelf ? filterTiers.filter(t => String(t.shelf_id) === shelf) : [], 'Tất cả tầng');
+        }
+
+        const csrfToken = '{{ csrf_token() }}';
+        const disposeUrl = '{{ route('pages.documentStorage.document.dispose') }}';
+        const canUpdateDocument = @json($canUpdate);
+        const canDisposeDocument = @json($canDispose);
+
+        const table = $('#data_table_document').DataTable({
+            autoWidth: false,
+            responsive: true,
+            processing: true,
+            serverSide: true,
+            searchDelay: 400,
+            dom: "<'row'<'col-sm-12'l>>rt<'row'<'col-sm-5'i><'col-sm-7'p>>",
+            lengthMenu: [
+                [10, 25, 50, 100, 500, -1],
+                [10, 25, 50, 100, 500, 'Tất cả']
+            ],
+            order: [[1, 'asc']],
+            ajax: {
+                url: '{{ route('pages.documentStorage.document.data') }}',
+                data: function(d) {
+                    d.type_id = $('#filter-type').val();
+                    d.expiry = $('#filter-expiry-status').val();
+                    d.warehouse_id = $('#filter-warehouse').val();
+                    d.shelf_id = $('#filter-shelf').val();
+                    d.tier_id = $('#filter-tier').val();
+                    d.location_id = $('#filter-location').val();
+                },
+                error: function(xhr) {
+                    if (xhr.status === 401) window.location.reload();
+                }
+            },
+            columns: [{
+                    data: null,
+                    orderable: false,
+                    render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1
+                },
+                {
+                    data: 'location_code',
+                    render: (data, type, row) => escapeHtml(data || row.location_name)
+                },
+                {
+                    data: 'code',
+                    orderable: false,
+                    className: 'text-center',
+                    render: (data, type, row) =>
+                        `<div class="qr-code-table d-inline-block" id="qr-table-${row.id}" data-id="${row.id}"
+                            data-code="${escapeHtml(row.code)}" style="cursor: pointer" title="Click để in nhãn"></div>`
+                },
+                {
+                    data: 'name',
+                    render: data => escapeHtml(data)
+                },
+                {
+                    data: 'type_names',
+                    orderable: false,
+                    render: data => data ? escapeHtml(data) : '-'
+                },
+                {
+                    data: 'expired_display',
+                    render: data => data || '-'
+                },
+                {
+                    data: 'status_id',
+                    className: 'text-center',
+                    render: data => data == 1 ?
+                        '<span class="badge badge-success">Sử dụng</span>' :
+                        '<span class="badge badge-danger">Ngưng</span>'
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center text-nowrap',
+                    render: (data, type, row) => {
+                        const e = escapeHtml;
+                        const active = row.status_id == 1;
+                        return `
+                            <button type="button" class="btn btn-sm btn-info btn-view-details"
+                                data-id="${row.id}" data-code="${e(row.code)}" data-name="${e(row.name)}" data-owner="${e(row.owner)}"
+                                data-filepath="${e(row.filepath)}" data-dept="${e(row.department_name)}"
+                                data-location="${e(row.location_name)}" data-warehouse="${e(row.warehouse_name || 'N/A')}"
+                                data-shelf="${e(row.shelf_name || 'N/A')}" data-tier="${e(row.tier_name || 'N/A')}"
+                                data-expired="${e(row.expired_display || 'N/A')}" data-private="${row.is_private ? 1 : 0}"
+                                data-types="${e(row.type_names || 'N/A')}" data-status="${active ? 'Sử dụng' : 'Ngưng'}"
+                                title="Xem chi tiết"><i class="fas fa-eye"></i></button>
+                            ${row.file_url ? `<a href="${e(row.file_url)}" target="_blank" class="btn btn-sm btn-primary" title="File"><i class="fas fa-file-download"></i></a>` : ''}
+                            <button type="button" class="btn btn-sm btn-warning btn-edit"
+                                data-id="${row.id}" data-code="${e(row.code)}" data-name="${e(row.name)}"
+                                data-filepath="${e(row.filepath)}"
+                                data-dept="${e(row.department_id)}" data-location="${e(row.location_id)}"
+                                data-location-name="${e(row.location_name)}"
+                                data-warehouse="${e(row.warehouse_id)}" data-shelf="${e(row.shelf_id)}"
+                                data-tier="${e(row.tier_id)}" data-expired="${e(row.expired_date)}"
+                                data-types="${e(JSON.stringify(row.type_ids))}"
+                                data-toggle="modal" data-target="#updateModal" title="Sửa" ${canUpdateDocument ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
+                            <button type="button" class="btn btn-sm btn-danger btn-dispose"
+                                data-id="${row.id}" data-code="${e(row.code)}" data-name="${e(row.name)}"
+                                data-location="${e(row.location_name)}" title="Huỷ hồ sơ" ${canDisposeDocument ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>`;
+                    }
+                }
+            ],
+            createdRow: function(rowEl, data) {
+                if (data.is_expired) $(rowEl).addClass('table-danger');
+            }
+        });
+
+        // Huỷ hồ sơ: bắt buộc nhập lý do; hồ sơ bị gỡ khỏi danh sách và vị trí được trả về trống
+        let disposalTable = null;
+
+        $(document).on('click', '.btn-dispose', function() {
+            const btn = $(this);
+            Swal.fire({
+                title: 'Huỷ hồ sơ?',
+                icon: 'warning',
+                html: `<div class="text-left" style="font-size: 0.9rem;">
+                        <div><b>Mã:</b> ${escapeHtml(btn.attr('data-code'))}</div>
+                        <div><b>Tên:</b> ${escapeHtml(btn.attr('data-name')) || '-'}</div>
+                        <div><b>Vị trí sẽ trả về trống:</b> ${escapeHtml(btn.attr('data-location')) || '-'}</div>
+                        <div class="text-danger mt-2">Hồ sơ sẽ bị gỡ khỏi danh sách và chỉ còn trong Lịch sử huỷ hồ sơ.</div>
+                    </div>`,
+                input: 'textarea',
+                inputPlaceholder: 'Nhập lý do huỷ hồ sơ...',
+                inputValidator: value => !value || !value.trim() ? 'Vui lòng nhập lý do huỷ hồ sơ.' : undefined,
+                showCancelButton: true,
+                confirmButtonText: 'Huỷ hồ sơ',
+                cancelButtonText: 'Đóng',
+                confirmButtonColor: '#dc3545',
+                showLoaderOnConfirm: true,
+                allowOutsideClick: () => !Swal.isLoading(),
+                preConfirm: reason => new Promise(resolve => {
+                    $.ajax({
+                        url: disposeUrl,
+                        method: 'POST',
+                        dataType: 'json',
+                        data: { _token: csrfToken, id: btn.attr('data-id'), reason: reason.trim() }
+                    }).done(resolve).fail(xhr => {
+                        Swal.showValidationMessage((xhr.responseJSON && xhr.responseJSON.message) || 'Không thể huỷ hồ sơ, vui lòng thử lại.');
+                        resolve(false);
+                    });
+                })
+            }).then(result => {
+                if (!result.value) return;
+                Swal.fire({ title: 'Đã huỷ!', text: result.value.message, icon: 'success', timer: 1800, showConfirmButton: false });
+                table.draw(false);
+                if (disposalTable) disposalTable.draw(false);
+            });
+        });
+
+        function initDisposalTable() {
+            disposalTable = $('#data_table_disposal').DataTable({
+                autoWidth: false,
+                responsive: true,
+                processing: true,
+                serverSide: true,
+                searchDelay: 400,
+                dom: "<'row'<'col-sm-12'l>>rt<'row'<'col-sm-5'i><'col-sm-7'p>>",
+                order: [[6, 'desc']],
+                ajax: {
+                    url: '{{ route('pages.documentStorage.document.disposals') }}',
+                    error: function(xhr) {
+                        if (xhr.status === 401) window.location.reload();
+                    }
+                },
+                columns: [{
+                        data: null,
+                        orderable: false,
+                        render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1
+                    },
+                    {
+                        data: 'location_code',
+                        render: (data, type, row) => (escapeHtml(data || row.location_name) || '-')
+                            + (row.location_path ? `<br><small class="text-muted">${escapeHtml(row.location_path)}</small>` : '')
+                    },
+                    { data: 'name', render: data => escapeHtml(data) || '-' },
+                    { data: 'type_names', orderable: false, render: data => data ? escapeHtml(data) : '-' },
+                    { data: 'reason', orderable: false, render: data => escapeHtml(data) },
+                    { data: 'disposed_by', render: data => escapeHtml(data) || '-' },
+                    { data: 'disposed_display', className: 'text-nowrap', render: data => data || '-' }
+                ]
+            });
+        }
+
+        $('#tab-disposals-link').on('shown.bs.tab', function() {
+            if (!disposalTable) {
+                initDisposalTable();
+            } else {
+                disposalTable.columns.adjust().draw(false);
+            }
+        });
+        $('#tab-documents-link').on('shown.bs.tab', () => table.columns.adjust());
+
+        $('#disposal-search-input').on('input', function() {
+            if (disposalTable) disposalTable.search($(this).val().trim()).draw();
+        });
+
+        // Search & Filter Logic
+        let suppressReload = false;
+
+        function reloadTable() {
+            if (!suppressReload) table.draw();
+        }
+
+        $('#quick-search-input').on('input', function() {
+            table.search($(this).val().trim()).draw();
+        });
+
+        $('#filter-warehouse, #filter-shelf, #filter-tier').on('change', function() {
+            if (suppressReload) return;
+            suppressReload = true;
+            refreshHierarchyOptions();
+            $('#filter-shelf, #filter-tier').trigger('change.select2');
+            loadDocumentLocations($('#filter-location'), $('#filter-tier').val(), null, 'Tất cả vị trí');
+            suppressReload = false;
+            reloadTable();
+        });
+        $('#filter-location, #filter-type, #filter-expiry-status').on('change', reloadTable);
+
         // Quick filter from badge
         $('#btn-filter-expired').click(function() {
             $('#filter-expiry-status').val('expired').trigger('change');
         });
 
         $('#btn-reset-filter').click(function() {
+            suppressReload = true;
             $('#quick-search-input').val('');
-            $('#filter-type').val('').trigger('change');
-            $('#filter-warehouse').val('').trigger('change');
-            $('#filter-room').val('').trigger('change');
-            $('#filter-shelf').val('').trigger('change');
-            $('#filter-location').val('').trigger('change');
-            $('#filter-expiry-status').val('all').trigger('change');
-            applyFilters();
+            $('#filter-type, #filter-expiry-status, #filter-warehouse').val('').trigger('change');
+            refreshHierarchyOptions();
+            $('#filter-shelf, #filter-tier').val('').trigger('change');
+            loadDocumentLocations($('#filter-location'), null, null, 'Tất cả vị trí');
+            suppressReload = false;
+            table.search('').draw();
         });
 
         // Detail View Logic
@@ -599,8 +643,8 @@
             modal.find('#detail_dept').text(btn.data('dept'));
             modal.find('#detail_types').text(btn.data('types'));
             modal.find('#detail_warehouse').text(btn.data('warehouse'));
-            modal.find('#detail_room').text(btn.data('room'));
             modal.find('#detail_shelf').text(btn.data('shelf'));
+            modal.find('#detail_tier').text(btn.data('tier'));
             modal.find('#detail_location').text(btn.data('location'));
             modal.find('#detail_owner').text(btn.data('owner') || 'N/A');
             modal.find('#detail_expired').text(btn.data('expired'));
@@ -636,7 +680,7 @@
 
             // Set print action
             $('#btn-print-detail').off('click').on('click', function() {
-                printQRCode(btn.data('code'), btn.data('name'), 'detail_qr');
+                openLabelPage(btn.data('id'));
             });
 
             modal.modal('show');
@@ -646,20 +690,19 @@
             const button = $(this);
             const modal = $('#updateModal');
             modal.find('#update_id').val(button.data('id'));
-            modal.find('#update_code').val(button.data('code'));
             modal.find('#update_name').val(button.data('name'));
-            modal.find('#update_owner').val(button.data('owner'));
             modal.find('#update_filepath').val(button.data('filepath'));
             modal.find('#update_dept_display').val(button.data('dept'));
             modal.find('#update_dept_id').val(button.data('dept'));
             modal.find('#update_expired').val(button.data('expired'));
-            modal.find('#update_is_private').prop('checked', button.data('private') == 1);
 
-            // Hierarchy Update Logic
-            modal.find('#update_warehouse_id').val(button.data('warehouse')).trigger('change');
-            modal.find('#update_room_id').val(button.data('room')).trigger('change');
-            modal.find('#update_shelf_id').val(button.data('shelf')).trigger('change');
-            modal.find('#update_location_id').val(button.data('location'));
+            window.updateStorageCascade.setLocation({
+                id: button.data('location'),
+                name: button.attr('data-location-name'),
+                warehouse_id: button.data('warehouse'),
+                shelf_id: button.data('shelf'),
+                tier_id: button.data('tier')
+            });
 
             // Populate multi-select for Document Types
             const types = button.data('types');
@@ -733,28 +776,14 @@
         });
 
 
-        // Generate QR Codes
+        // Generate QR Codes (chỉ cho các dòng của trang hiện tại)
         function generateAllQRs() {
-            $('.qr-code-small').each(function() {
+            $('#data_table_document .qr-code-table').each(function() {
                 var id = $(this).attr('id');
                 var code = $(this).data('code');
                 $(this).empty();
                 new QRCode(document.getElementById(id), {
-                    text: code,
-                    width: 40,
-                    height: 40,
-                    colorDark: "#003a4f",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-            });
-
-            $('.qr-code-table').each(function() {
-                var id = $(this).attr('id');
-                var code = $(this).data('code');
-                $(this).empty();
-                new QRCode(document.getElementById(id), {
-                    text: code,
+                    text: String(code),
                     width: 30,
                     height: 30,
                     colorDark: "#333333",
@@ -764,64 +793,19 @@
             });
         }
 
-        // Generate on load
-        generateAllQRs();
-
-        // Regenerate when table or view changes
-        $('#btn-table-view, #btn-grid-view').click(function() {
-            setTimeout(generateAllQRs, 100);
-        });
-
         table.on('draw', function() {
             generateAllQRs();
         });
 
-        // Print functionality
-        window.printQRCode = function(code, name, qrElementId) {
-            const qrCanvas = document.getElementById(qrElementId).querySelector('canvas');
-            if (!qrCanvas) return;
+        $(document).on('click', '#data_table_document .qr-code-table', function() {
+            openLabelPage($(this).data('id'));
+        });
 
-            const qrImageData = qrCanvas.toDataURL("image/png");
-            const printWindow = window.open('', '_blank');
-
-            printWindow.document.write(`
-                <html>
-                <head>
-                    <title>In mã QR - ${code}</title>
-                    <style>
-                        body { 
-                            display: flex; 
-                            flex-direction: column; 
-                            align-items: center; 
-                            justify-content: center; 
-                            height: 100vh; 
-                            margin: 0; 
-                            font-family: Arial, sans-serif;
-                            text-align: center;
-                        }
-                        .container {
-                            border: 1px solid #eee;
-                            padding: 20px;
-                            border-radius: 8px;
-                        }
-                        .name { font-size: 18px; font-weight: bold; margin-top: 10px; }
-                        .code { font-size: 14px; color: #666; }
-                        img { width: 200px; height: 200px; }
-                        @media print {
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body onload="window.print(); window.close();">
-                    <div class="container">
-                        <img src="${qrImageData}" />
-                        <div class="name">${name}</div>
-                        <div class="code">Mã: ${code}</div>
-                    </div>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
+        // In nhãn: mở trang in nhãn tài liệu ở tab mới (chọn số lượng, in Zebra / trình duyệt)
+        const labelUrl = '{{ route('pages.documentStorage.document.label') }}';
+        window.openLabelPage = function(id) {
+            if (!id) return;
+            window.open(labelUrl + '?id=' + encodeURIComponent(id), '_blank');
         };
     });
 </script>
@@ -856,12 +840,12 @@
                                 <td id="detail_warehouse"></td>
                             </tr>
                             <tr>
-                                <th><i class="fas fa-door-open text-info mr-2"></i> Phòng:</th>
-                                <td id="detail_room"></td>
+                                <th><i class="fas fa-archive text-warning mr-2"></i> Kệ:</th>
+                                <td id="detail_shelf"></td>
                             </tr>
                             <tr>
-                                <th><i class="fas fa-layer-group text-warning mr-2"></i> Kệ:</th>
-                                <td id="detail_shelf"></td>
+                                <th><i class="fas fa-bars text-info mr-2"></i> Tầng:</th>
+                                <td id="detail_tier"></td>
                             </tr>
                         </table>
                     </div>
@@ -926,7 +910,7 @@
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-secondary px-4" data-dismiss="modal">Đóng</button>
                 <button type="button" class="btn btn-success px-4" id="btn-print-detail">
-                    <i class="fas fa-print mr-1"></i> In QR
+                    <i class="fas fa-print mr-1"></i> In nhãn
                 </button>
             </div>
         </div>

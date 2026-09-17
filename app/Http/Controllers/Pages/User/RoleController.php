@@ -6,41 +6,97 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class RoleController extends Controller
 {
     public function index(){
-        $datas = DB::table('roles')
-            ->leftJoin('role_permission', 'roles.id', '=', 'role_permission.role_id')
-            ->leftJoin('permissions', 'role_permission.permission_id', '=', 'permissions.id')
-            ->select(
-                'roles.id as role_id',
-                'roles.name as role_name',
-                'permissions.id as permission_id',
-                'permissions.display_name as permission_name',
-                'permissions.permission_group',
-            )
-            ->orderBy('role_id')
-            ->orderBy('permission_group', 'asc')
+        $roles = DB::table('roles')->orderBy('id', 'asc')->get();
+
+        $rolePermissionMap = DB::table('role_permission')
             ->get()
             ->groupBy('role_id')
-            ->map(function ($items) {
-                $permissions = $items->pluck('permission_name', 'permission_id')
-                                    ->filter()
-                                    ->toArray();
+            ->map(fn ($items) => $items->pluck('permission_id')->toArray());
 
-                return [
-                    'id' => $items->first()->role_id,
-                    'name' => $items->first()->role_name,
-                    'permissions' => $permissions
-                   
-                ];
-            })
-            ->values();
+        $datas = $roles->map(function ($role) use ($rolePermissionMap) {
+            return [
+                'id' => $role->id,
+                'name' => $role->name,
+                'permission_ids' => $rolePermissionMap->get($role->id, collect())->toArray(),
+            ];
+        });
 
+        // Lấy toàn bộ quyền hiện có (không chỉ quyền đã gán cho Admin) để quyền
+        // mới tạo luôn xuất hiện trong bảng, kể cả khi chưa được gán cho ai.
+        $permissions = DB::table('permissions')
+            ->orderBy('permission_group', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
 
         session()->put(['title'=> 'DANH SÁCH NHÓM QUYỀN']);
-        return view('pages.User.role.list', ['datas' => $datas]);
+        return view('pages.User.role.list', [
+            'datas' => $datas,
+            'permissions' => $permissions,
+            'groups' => PermissionContoller::GROUPS,
+        ]);
+    }
+
+    public function store(Request $request){
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255|unique:roles,name',
+        ], [
+            'name.required' => 'Vui lòng nhập tên nhóm quyền.',
+            'name.unique' => 'Tên nhóm quyền đã tồn tại.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator, 'createErrors')->withInput();
+        }
+
+        DB::table('roles')->insert([
+            'name' => $request->name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Đã thêm nhóm quyền thành công!');
+    }
+
+    public function update(Request $request){
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer|exists:roles,id',
+            'name' => 'required|string|max:255|unique:roles,name,'.$request->id,
+        ], [
+            'name.required' => 'Vui lòng nhập tên nhóm quyền.',
+            'name.unique' => 'Tên nhóm quyền đã tồn tại.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator, 'updateErrors')->withInput();
+        }
+
+        if ((int) $request->id === 1) {
+            return redirect()->back()->with('error', 'Không thể đổi tên nhóm quyền Admin!');
+        }
+
+        DB::table('roles')->where('id', $request->id)->update([
+            'name' => $request->name,
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Đã cập nhật nhóm quyền thành công!');
+    }
+
+    public function destroy(string|int $id){
+        if ((int) $id === 1) {
+            return redirect()->back()->with('error', 'Không thể xoá nhóm quyền Admin!');
+        }
+
+        DB::table('role_permission')->where('role_id', $id)->delete();
+        DB::table('user_role')->where('role_id', $id)->delete();
+        DB::table('roles')->where('id', $id)->delete();
+
+        return redirect()->back()->with('success', 'Đã xoá nhóm quyền thành công!');
     }
 
     public function store_or_update(Request $request){

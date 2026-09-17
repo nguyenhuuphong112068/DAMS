@@ -64,7 +64,7 @@
         {{-- Tên dài hơn "LMS-SYSTEM" cũ nên giảm cỡ chữ để xuống dòng gọn trong sidebar --}}
         <span class="brand-text fw-bold d-block mt-2 library-title"
             style="color: var(--primary-navy); font-size: 0.95rem; line-height: 1.3;">
-            Sổ theo dõi<br>cấp lại hồ sơ
+            Quản Lý<br>Kho Hồ Sơ
         </span>
     </a>
 
@@ -138,11 +138,18 @@
                         </ul>
                     </li>
 
+
+
                     <!-- Droplist Menu Vị Trí Lưu Trữ -->
-                    <li
-                        class="nav-item has-treeview {{ str_contains(url()->current(), 'storageLocation') ? 'menu-open' : '' }}">
-                        <a href="#"
-                            class="nav-link {{ str_contains(url()->current(), 'storageLocation') ? 'active' : '' }}">
+                    @php
+                        // Sơ Đồ Kho cũng nằm dưới /storageLocation nhưng là mục riêng,
+                        // nên không được làm nhóm này mở/sáng theo.
+                        $inStorageTree =
+                            request()->routeIs('pages.storageLocation.*') &&
+                            !request()->routeIs('pages.storageLocation.map.*');
+                    @endphp
+                    <li class="nav-item has-treeview {{ $inStorageTree ? 'menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $inStorageTree ? 'active' : '' }}">
                             <i class="fas fa-map-marker-alt"></i>
                             <p>
                                 Vị Trí Lưu Trữ
@@ -151,22 +158,35 @@
                         </a>
                         <ul class="nav nav-treeview">
                             <li class="nav-item"><a href="{{ route('pages.storageLocation.warehouse.list') }}"
-                                    class="nav-link"><i class="far fa-circle nav-icon text-primary"></i>
+                                    class="nav-link {{ request()->routeIs('pages.storageLocation.warehouse.*') ? 'active' : '' }}"><i
+                                        class="far fa-circle nav-icon text-primary"></i>
                                     <p>Kho</p>
                                 </a></li>
-                            <li class="nav-item"><a href="{{ route('pages.storageLocation.room.list') }}"
-                                    class="nav-link"><i class="far fa-circle nav-icon text-info"></i>
-                                    <p>Phòng</p>
-                                </a></li>
                             <li class="nav-item"><a href="{{ route('pages.storageLocation.shelf.list') }}"
-                                    class="nav-link"><i class="far fa-circle nav-icon text-warning"></i>
-                                    <p>Kệ (Shelf)</p>
+                                    class="nav-link {{ request()->routeIs('pages.storageLocation.shelf.*') ? 'active' : '' }}"><i
+                                        class="far fa-circle nav-icon text-info"></i>
+                                    <p>Kệ</p>
+                                </a></li>
+                            <li class="nav-item"><a href="{{ route('pages.storageLocation.tier.list') }}"
+                                    class="nav-link {{ request()->routeIs('pages.storageLocation.tier.*') ? 'active' : '' }}"><i
+                                        class="far fa-circle nav-icon text-warning"></i>
+                                    <p>Tầng</p>
                                 </a></li>
                             <li class="nav-item"><a href="{{ route('pages.storageLocation.location.list') }}"
-                                    class="nav-link"><i class="far fa-circle nav-icon text-danger"></i>
-                                    <p>Vị trí (Location)</p>
+                                    class="nav-link {{ request()->routeIs('pages.storageLocation.location.*') ? 'active' : '' }}"><i
+                                        class="far fa-circle nav-icon text-danger"></i>
+                                    <p>Vị Trí</p>
                                 </a></li>
                         </ul>
+                    </li>
+
+                    <!-- Sơ Đồ Kho -->
+                    <li class="nav-item">
+                        <a href="{{ route('pages.storageLocation.map.list') }}"
+                            class="nav-link {{ request()->routeIs('pages.storageLocation.map.*') ? 'active' : '' }}">
+                            <i class="fas fa-th"></i>
+                            <p>Sơ Đồ Kho</p>
+                        </a>
                     </li>
 
                     <!-- Quản lý Tài liệu -->
@@ -182,25 +202,25 @@
                     {{-- Route::has(): nếu server chưa có route (deploy thiếu file / cache route cũ)
                          thì chỉ ẩn mục menu, không để route() ném lỗi làm sập MỌI trang. --}}
                     @if (Route::has('pages.documentStorage.routing.list'))
-                        <li class="nav-item">
+                        {{-- <li class="nav-item">
                             <a href="{{ route('pages.documentStorage.routing.list') }}"
                                 class="nav-link {{ str_contains(url()->current(), 'documentStorage/routing') ? 'active' : '' }}">
                                 <i class="fas fa-route"></i>
                                 <p>Luân chuyển Hồ sơ</p>
                             </a>
-                        </li>
+                        </li> --}}
                     @endif
                 @endif
 
                 <!-- Xin cấp lại Hồ sơ -->
                 @if (Route::has('pages.documentStorage.reissue.list'))
-                    <li class="nav-item">
+                    {{-- <li class="nav-item">
                         <a href="{{ route('pages.documentStorage.reissue.list') }}"
                             class="nav-link {{ str_contains(url()->current(), 'documentStorage/reissue') ? 'active' : '' }}">
                             <i class="fas fa-redo-alt"></i>
                             <p>Xin cấp lại Hồ sơ</p>
                         </a>
-                    </li>
+                    </li> --}}
                 @endif
 
                 <!-- User Policy -->

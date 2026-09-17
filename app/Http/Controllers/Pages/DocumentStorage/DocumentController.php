@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Pages\DocumentStorage;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
+use App\Support\QrCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -21,76 +23,34 @@ class DocumentController extends Controller
         try {
             $user = session('user');
             $selectedDeptId = $user['selected_department_id'];
-            $userDeptId = $user['department_id'] ?? $selectedDeptId;
-
-            $datas = DB::table('documents')
-                ->where('documents.department_id', $selectedDeptId)
-                ->leftJoin('deparments', 'documents.department_id', '=', 'deparments.id')
-                ->leftJoin('locations', 'documents.location_id', '=', 'locations.id')
-                ->leftJoin('warehouses', 'locations.warehouse_id', '=', 'warehouses.id')
-                ->leftJoin('rooms', 'locations.room_id', '=', 'rooms.id')
-                ->leftJoin('shelves', 'locations.shelf_id', '=', 'shelves.id')
-                ->select(
-                    'documents.*',
-                    'deparments.name as department_name',
-                    'locations.name as location_name',
-                    'locations.warehouse_id',
-                    'locations.room_id',
-                    'locations.shelf_id',
-                    'warehouses.name as warehouse_name',
-                    'rooms.name as room_name',
-                    'shelves.name as shelf_name'
-                )
-                ->orderBy('documents.name', 'asc')
-                ->get();
-
-            // Get document types from pivot table for each document
-            $docIds = $datas->pluck('id');
-            $typesMap = DB::table('document_has_types')
-                ->whereIn('document_id', $docIds)
-                ->get()
-                ->groupBy('document_id');
-
-            foreach ($datas as $data) {
-                $data->document_types_id = isset($typesMap[$data->id])
-                    ? $typesMap[$data->id]->pluck('document_type_id')->toJson()
-                    : json_encode([]);
-            }
 
             $departments = DB::table('deparments')->where('active', true)->get();
             $document_types = DB::table('document_types')->get();
             
             // Fetch storage hierarchy for filters
             $warehouses = DB::table('warehouses')->where('active', true)->get();
-            $rooms = DB::table('rooms')->where('active', true)->get();
             $shelves = DB::table('shelves')->where('active', true)->get();
-            $locations = DB::table('locations')
-                ->where('department_id', $userDeptId)
-                ->where('status_id', 1)
-                ->get();
+            $tiers = DB::table('tiers')->where('active', true)->get();
+            // Vị trí (~60k dòng) không render sẵn; tải theo tầng qua route locations
 
             session()->put(['title' => 'QUẢN LÝ TÀI LIỆU']);
 
-            // Tính toán tài liệu hết hạn
-            $now = \Carbon\Carbon::now();
-            $expiredCount = 0;
-            foreach ($datas as $data) {
-                $data->is_expired = false;
-                if ($data->expired_date && \Carbon\Carbon::parse($data->expired_date)->isPast()) {
-                    $data->is_expired = true;
-                    $expiredCount++;
-                }
-            }
+            // Đếm tài liệu hết hạn (dữ liệu bảng được tải qua AJAX ở route data)
+            $expiredCount = DB::table('documents')
+                ->where('department_id', $selectedDeptId)
+                ->whereNotNull('expired_date')
+                ->whereDate('expired_date', '<=', now()->toDateString())
+                ->count();
 
             return view('pages.DocumentStorage.Document.list', [
-                'datas' => $datas,
                 'departments' => $departments,
                 'document_types' => $document_types,
                 'warehouses' => $warehouses,
-                'rooms' => $rooms,
                 'shelves' => $shelves,
-                'locations' => $locations,
-                'expiredCount' => $expiredCount
+                'tiers' => $tiers,
+                'expiredCount' => $expiredCount,
+                'canUpdate' => user_has_permission($user['userId'], 'document.update', 'boolean'),
+                'canDispose' => user_has_permission($user['userId'], 'document.dispose', 'boolean'),
             ]);
         } catch (\Exception $e) {
             Log::error("Document index error: " . $e->getMessage());
@@ -98,14 +58,342 @@ class DocumentController extends Controller
         }
     }
 
+    // Danh sách vị trí của một tầng, dùng cho bộ lọc và modal thêm/sửa
+    public function locations(Request $request)
+    {
+        if (!session()->has('user') || !$request->filled('tier_id')) {
+            return response()->json([]);
+        }
+
+        $user = session('user');
+        $userDeptId = $user['department_id'] ?? $user['selected_department_id'] ?? null;
+
+        $locations = DB::table('locations')
+            ->where('tier_id', $request->tier_id)
+            ->where(function ($q) use ($request, $userDeptId) {
+                $q->where(function ($q) use ($userDeptId) {
+                    $q->where('department_id', $userDeptId)->where('status_id', 1);
+                });
+                // Giữ vị trí hiện tại của tài liệu đang sửa dù không còn hoạt động
+                if ($request->filled('include_id')) {
+                    $q->orWhere('id', $request->include_id);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($locations);
+    }
+
+    // Tìm vị trí cho modal thêm/sửa (Select2 AJAX): chọn vị trí trước sẽ tự suy ra Kho/Kệ/Tầng
+    public function locationSearch(Request $request)
+    {
+        if (!session()->has('user')) {
+            return response()->json(['results' => [], 'pagination' => ['more' => false]]);
+        }
+
+        $user = session('user');
+        $userDeptId = $user['department_id'] ?? $user['selected_department_id'] ?? null;
+        $perPage = 30;
+        $page = max(1, (int) $request->input('page', 1));
+
+        $query = DB::table('locations')
+            ->leftJoin('warehouses', 'locations.warehouse_id', '=', 'warehouses.id')
+            ->leftJoin('shelves', 'locations.shelf_id', '=', 'shelves.id')
+            ->leftJoin('tiers', 'locations.tier_id', '=', 'tiers.id')
+            ->where('locations.department_id', $userDeptId)
+            ->where('locations.status_id', 1)
+            // Chỉ vị trí trống (hoặc vị trí của chính tài liệu đang sửa)
+            ->whereNotExists(function ($q) use ($request) {
+                $q->select(DB::raw(1))
+                    ->from('documents')
+                    ->whereColumn('documents.location_id', 'locations.id');
+                if ($request->filled('document_id')) {
+                    $q->where('documents.id', '<>', $request->document_id);
+                }
+            });
+
+        foreach (['warehouse_id', 'shelf_id', 'tier_id'] as $field) {
+            if ($request->filled($field)) {
+                $query->where("locations.$field", $request->input($field));
+            }
+        }
+
+        if ($request->filled('q')) {
+            $keyword = trim($request->q);
+            $query->where(function ($q) use ($keyword) {
+                $q->where('locations.name', 'like', "%{$keyword}%")
+                    ->orWhere('locations.code', 'like', "%{$keyword}%");
+            });
+        }
+
+        $rows = $query->orderBy('warehouses.code')->orderBy('shelves.code')->orderBy('tiers.code')->orderBy('locations.code')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage + 1)
+            ->get([
+                'locations.id', 'locations.name', 'locations.code',
+                'locations.warehouse_id', 'locations.shelf_id', 'locations.tier_id',
+                'warehouses.name as warehouse_name', 'shelves.name as shelf_name', 'tiers.name as tier_name',
+            ]);
+
+        $more = $rows->count() > $perPage;
+        $results = $rows->take($perPage)->map(fn($r) => [
+            'id' => $r->id,
+            'text' => $r->code . ' - ' . $r->name,
+            'path' => implode(' / ', array_filter([$r->warehouse_name, $r->shelf_name, $r->tier_name])),
+            'warehouse_id' => $r->warehouse_id,
+            'shelf_id' => $r->shelf_id,
+            'tier_id' => $r->tier_id,
+        ])->values();
+
+        return response()->json(['results' => $results, 'pagination' => ['more' => $more]]);
+    }
+
+    // DataTables server-side: chỉ truy vấn đúng trang đang xem
+    public function data(Request $request)
+    {
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return response()->json(['error' => 'Phiên làm việc hết hạn'], 401);
+        }
+
+        $selectedDeptId = session('user')['selected_department_id'];
+        $today = now()->toDateString();
+
+        $base = DB::table('documents')
+            ->where('documents.department_id', $selectedDeptId)
+            ->leftJoin('locations', 'documents.location_id', '=', 'locations.id');
+
+        $recordsTotal = (clone $base)->count();
+
+        $keyword = trim($request->input('search.value', ''));
+        if ($keyword !== '') {
+            $base->where(function ($q) use ($keyword) {
+                $q->where('documents.code', 'like', "%{$keyword}%")
+                    ->orWhere('documents.name', 'like', "%{$keyword}%")
+                    ->orWhere('locations.code', 'like', "%{$keyword}%")
+                    ->orWhere('locations.name', 'like', "%{$keyword}%");
+            });
+        }
+        if ($request->filled('type_id')) {
+            $base->whereExists(function ($q) use ($request) {
+                $q->select(DB::raw(1))
+                    ->from('document_has_types')
+                    ->whereColumn('document_has_types.document_id', 'documents.id')
+                    ->where('document_has_types.document_type_id', $request->type_id);
+            });
+        }
+        foreach (['warehouse_id', 'shelf_id', 'tier_id'] as $field) {
+            if ($request->filled($field)) {
+                $base->where("locations.$field", $request->input($field));
+            }
+        }
+        if ($request->filled('location_id')) {
+            $base->where('documents.location_id', $request->location_id);
+        }
+        if ($request->expiry === 'expired') {
+            $base->whereNotNull('documents.expired_date')->whereDate('documents.expired_date', '<=', $today);
+        } elseif ($request->expiry === 'valid') {
+            $base->where(function ($q) use ($today) {
+                $q->whereNull('documents.expired_date')->orWhereDate('documents.expired_date', '>', $today);
+            });
+        }
+
+        $recordsFiltered = (clone $base)->count();
+
+        // Chỉ số cột phải khớp với thứ tự <th> trong dataTable.blade.php
+        // Cột vị trí sắp theo thứ bậc Kho → Kệ → Tầng → Vị trí (theo mã để Kho A1 lên trước)
+        $locationOrder = ['warehouses.code', 'shelves.code', 'tiers.code', 'locations.code'];
+        $sortable = [1 => $locationOrder, 3 => ['documents.name'], 5 => ['documents.expired_date'], 6 => ['documents.status_id']];
+        $orderCols = $sortable[(int) $request->input('order.0.column', 1)] ?? $locationOrder;
+        $orderDir = $request->input('order.0.dir') === 'desc' ? 'desc' : 'asc';
+
+        $start = max(0, (int) $request->input('start', 0));
+        $length = (int) $request->input('length', 10);
+        $isAll = ($length === -1);
+
+        $rows = $base
+            ->leftJoin('deparments', 'documents.department_id', '=', 'deparments.id')
+            ->leftJoin('warehouses', 'locations.warehouse_id', '=', 'warehouses.id')
+            ->leftJoin('shelves', 'locations.shelf_id', '=', 'shelves.id')
+            ->leftJoin('tiers', 'locations.tier_id', '=', 'tiers.id')
+            ->select(
+                'documents.id', 'documents.code', 'documents.name', 'documents.owner', 'documents.filepath',
+                'documents.location_id', 'documents.department_id', 'documents.expired_date',
+                'documents.is_private', 'documents.status_id',
+                'deparments.name as department_name',
+                'locations.name as location_name', 'locations.code as location_code',
+                'locations.warehouse_id', 'locations.shelf_id', 'locations.tier_id',
+                'warehouses.name as warehouse_name', 'warehouses.code as warehouse_code',
+                'shelves.name as shelf_name', 'shelves.code as shelf_code',
+                'tiers.name as tier_name', 'tiers.code as tier_code'
+            );
+        foreach ($orderCols as $col) {
+            $rows->orderBy($col, $orderDir);
+        }
+        $rows = $rows->orderBy('documents.id');
+
+        if (!$isAll) {
+            $length = $length > 0 ? min($length, 500) : 10;
+            $rows = $rows->offset($start)->limit($length);
+        }
+
+        $rows = $rows->get();
+
+        $types = DB::table('document_has_types')
+            ->join('document_types', 'document_has_types.document_type_id', '=', 'document_types.id')
+            ->whereIn('document_has_types.document_id', $rows->pluck('id'))
+            ->select('document_has_types.document_id', 'document_types.id', 'document_types.name')
+            ->get()
+            ->groupBy('document_id');
+
+        foreach ($rows as $row) {
+            $docTypes = $types[$row->id] ?? collect();
+            $row->type_ids = $docTypes->pluck('id')->values();
+            $row->type_names = $docTypes->pluck('name')->implode(', ');
+            $row->is_expired = $row->expired_date && $row->expired_date <= $today;
+            $row->expired_display = $row->expired_date ? \Carbon\Carbon::parse($row->expired_date)->format('d/m/Y') : null;
+            $row->file_url = $row->filepath
+                ? (strpos($row->filepath, 'http') === 0 ? $row->filepath : asset($row->filepath))
+                : null;
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw'),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $rows,
+        ]);
+    }
+
+    /**
+     * Trang in nhãn tài liệu (mã QR), mở tab mới khi bấm vào mã QR trên bảng.
+     *
+     * Số lượng nhãn chọn ngay trên trang in (nhân bản nhãn bằng JS) nên không nạp lại
+     * trang; lúc bấm In, trang gọi labelPrinted() để ghi audit log.
+     */
+    public function label(Request $request)
+    {
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return redirect()->route('login')->with('error', 'Phiên làm việc hết hạn, vui lòng đăng nhập lại.');
+        }
+
+        $row = DB::table('documents')
+            ->leftJoin('locations', 'documents.location_id', '=', 'locations.id')
+            ->leftJoin('deparments', 'documents.department_id', '=', 'deparments.id')
+            ->select(
+                'documents.id', 'documents.code', 'documents.name', 'documents.owner',
+                'documents.expired_date', 'documents.created_at',
+                'locations.code as location_code', 'locations.name as location_name',
+                'deparments.name as department_name'
+            )
+            ->where('documents.id', $request->id)
+            ->where('documents.department_id', session('user')['selected_department_id'])
+            ->first();
+
+        if (!$row) {
+            abort(404, 'Không tìm thấy tài liệu.');
+        }
+
+        return view('pages.DocumentStorage.Document.label', [
+            'document' => $row,
+            'label' => config('document.label'),
+            // ECC Q (25%): chịu được logo Stella đè giữa mã. border 1 module: vùng
+            // trắng tối thiểu để QR gọn trong góc 1/4 nhãn.
+            'qr' => QrCode::render((string) $row->code, 'Q', 1),
+            'maxCopies' => (int) config('document.label.max_copies', 100),
+        ]);
+    }
+
+    /**
+     * GHI AUDIT LOG MỖI LẦN IN NHÃN TÀI LIỆU.
+     *
+     * Trang in gọi vào đây ngay trước khi in (kể cả khi bấm Ctrl+P). Ngoài nhật ký chỉ
+     * cập nhật labeled_location_id: nhãn vừa in mang vị trí hiện tại, nên hồ sơ rời
+     * khỏi danh sách "Nhãn cần in lại" trên Sơ Đồ Kho.
+     */
+    public function labelPrinted(Request $request)
+    {
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return response()->json(['ok' => false, 'message' => 'Phiên làm việc hết hạn'], 401);
+        }
+
+        $maxCopies = (int) config('document.label.max_copies', 100);
+        $copies = max(1, min($maxCopies, (int) $request->input('copies', 1)));
+
+        $row = DB::table('documents')
+            ->select('id', 'code', 'name', 'location_id')
+            ->where('id', $request->id)
+            ->where('department_id', session('user')['selected_department_id'])
+            ->first();
+
+        if (!$row) {
+            return response()->json(['ok' => false, 'message' => 'Không tìm thấy tài liệu cần in nhãn.'], 404);
+        }
+
+        $printedAt = now();
+
+        DB::table('documents')->where('id', $row->id)->update(['labeled_location_id' => $row->location_id]);
+
+        AuditTrialController::log(
+            'In nhãn',
+            'documents',
+            $row->id,
+            'NA',
+            'In nhãn tài liệu: ' . ($row->name ?: '(chưa có tên)')
+                . ' | Mã tài liệu: ' . $row->code
+                . ' | Số lượng nhãn: ' . $copies
+                . ' | Thời điểm in: ' . $printedAt->format('d/m/Y H:i:s')
+        );
+
+        return response()->json([
+            'ok' => true,
+            'copies' => $copies,
+            'printedAt' => $printedAt->format('d/m/Y H:i:s'),
+        ]);
+    }
+
+    /**
+     * Mã tài liệu chính là mã vị trí lưu trữ, nên không nhập tay mà suy ra từ vị trí.
+     * Trả về [mã, lỗi]; vị trí đã có hồ sơ khác thì báo lỗi.
+     */
+    private function resolveDocumentCode($locationId, $documentId = null)
+    {
+        $location = DB::table('locations')->where('id', $locationId)->first(['id', 'code']);
+        if (!$location) {
+            return [null, 'Vị trí lưu trữ không tồn tại.'];
+        }
+
+        $occupied = DB::table('documents')
+            ->where('location_id', $location->id)
+            ->when($documentId, fn($q) => $q->where('id', '<>', $documentId))
+            ->exists();
+        if ($occupied) {
+            return [null, 'Vị trí ' . $location->code . ' đã có hồ sơ khác.'];
+        }
+
+        $duplicated = DB::table('documents')
+            ->where('code', $location->code)
+            ->when($documentId, fn($q) => $q->where('id', '<>', $documentId))
+            ->exists();
+        if ($duplicated) {
+            return [null, 'Mã tài liệu ' . $location->code . ' đã tồn tại.'];
+        }
+
+        return [$location->code, null];
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'code' => 'required|unique:documents,code',
             'name' => 'required',
             'location_id' => 'required',
             'department_id' => 'required',
         ]);
+
+        [$code, $codeError] = $validator->fails() ? [null, null] : $this->resolveDocumentCode($request->location_id);
+        if ($codeError) {
+            $validator->after(fn($v) => $v->errors()->add('location_id', $codeError));
+        }
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator, 'createErrors')->withInput();
@@ -127,14 +415,14 @@ class DocumentController extends Controller
         }
 
         $docId = DB::table('documents')->insertGetId([
-            'code' => $request->code,
+            'code' => $code,
             'name' => $request->name,
-            'owner' => $request->owner ?? session('user')['fullName'],
+            'owner' => session('user')['fullName'],
             'filepath' => $filepath,
             'location_id' => $request->location_id,
             'department_id' => $request->department_id,
             'expired_date' => $request->expired_date,
-            'is_private' => $request->has('is_private'),
+            'is_private' => false,
             'status_id' => 1, // Default Active
             'created_by' => session('user')['fullName'],
             'created_at' => now(),
@@ -159,11 +447,23 @@ class DocumentController extends Controller
     public function update(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'code' => 'required|unique:documents,code,' . $request->id,
+            'id' => 'required',
             'name' => 'required',
             'location_id' => 'required',
             'department_id' => 'required',
         ]);
+
+        $document = DB::table('documents')->where('id', $request->id)->first(['id', 'code', 'location_id']);
+        $code = $document->code ?? null;
+        if (!$validator->fails() && !$document) {
+            $validator->after(fn($v) => $v->errors()->add('id', 'Không tìm thấy tài liệu.'));
+        } elseif (!$validator->fails() && (int) $document->location_id !== (int) $request->location_id) {
+            // Đổi vị trí thì mã tài liệu đổi theo mã vị trí mới
+            [$code, $codeError] = $this->resolveDocumentCode($request->location_id, $document->id);
+            if ($codeError) {
+                $validator->after(fn($v) => $v->errors()->add('location_id', $codeError));
+            }
+        }
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator, 'updateErrors')->withInput();
@@ -185,14 +485,12 @@ class DocumentController extends Controller
         }
 
         DB::table('documents')->where('id', $request->id)->update([
-            'code' => $request->code,
+            'code' => $code,
             'name' => $request->name,
-            'owner' => $request->owner,
             'filepath' => $filepath,
             'location_id' => $request->location_id,
             'department_id' => $request->department_id,
             'expired_date' => $request->expired_date,
-            'is_private' => $request->has('is_private'),
             'updated_by' => session('user')['fullName'],
             'updated_at' => now(),
         ]);
@@ -215,17 +513,147 @@ class DocumentController extends Controller
         return redirect()->back()->with('success', 'Cập nhật tài liệu thành công!');
     }
 
-    public function deActive(Request $request)
+    /**
+     * HUỶ HỒ SƠ.
+     *
+     * Lưu bản chụp hồ sơ + vị trí vào document_disposals rồi xoá hồ sơ khỏi documents,
+     * nhờ vậy vị trí đang giữ trở thành vị trí trống ở mọi nơi (sơ đồ kho, chọn vị trí...).
+     */
+    public function dispose(Request $request)
     {
-        $id = $request->id;
-        $status_id = $request->status_id;
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return response()->json(['message' => 'Phiên làm việc hết hạn, vui lòng đăng nhập lại.'], 401);
+        }
 
-        DB::table('documents')->where('id', $id)->update([
-            'status_id' => ($status_id == 1 ? 0 : 1),
-            'updated_by' => session('user')['fullName'],
-            'updated_at' => now(),
+        $reason = trim((string) $request->input('reason'));
+        if ($reason === '') {
+            return response()->json(['message' => 'Vui lòng nhập lý do huỷ hồ sơ.'], 422);
+        }
+
+        $departmentId = session('user')['selected_department_id'];
+        $actor = session('user')['fullName'] ?? 'NA';
+        $documentId = (int) $request->input('id');
+
+        $result = DB::transaction(function () use ($departmentId, $actor, $documentId, $reason) {
+            $document = DB::table('documents')
+                ->where('id', $documentId)
+                ->where('department_id', $departmentId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$document) {
+                return ['status' => 404, 'message' => 'Không tìm thấy hồ sơ hoặc hồ sơ đã bị huỷ.'];
+            }
+
+            $location = DB::table('locations')
+                ->leftJoin('warehouses', 'locations.warehouse_id', '=', 'warehouses.id')
+                ->leftJoin('shelves', 'locations.shelf_id', '=', 'shelves.id')
+                ->leftJoin('tiers', 'locations.tier_id', '=', 'tiers.id')
+                ->where('locations.id', $document->location_id)
+                ->select(
+                    'locations.code', 'locations.name',
+                    'warehouses.name as warehouse_name', 'shelves.name as shelf_name', 'tiers.name as tier_name'
+                )
+                ->first();
+
+            $typeNames = DB::table('document_has_types')
+                ->join('document_types', 'document_has_types.document_type_id', '=', 'document_types.id')
+                ->where('document_has_types.document_id', $document->id)
+                ->pluck('document_types.name')
+                ->implode(', ');
+
+            DB::table('document_disposals')->insert([
+                'document_id'         => $document->id,
+                'code'                => $document->code,
+                'name'                => $document->name,
+                'owner'               => $document->owner,
+                'filepath'            => $document->filepath,
+                'department_id'       => $document->department_id,
+                'type_names'          => $typeNames !== '' ? mb_substr($typeNames, 0, 500) : null,
+                'expired_date'        => $document->expired_date,
+                'location_id'         => $document->location_id,
+                'location_code'       => $location->code ?? null,
+                'location_name'       => $location->name ?? null,
+                'warehouse_name'      => $location->warehouse_name ?? null,
+                'shelf_name'          => $location->shelf_name ?? null,
+                'tier_name'           => $location->tier_name ?? null,
+                'reason'              => $reason,
+                'document_created_by' => $document->created_by,
+                'document_created_at' => $document->created_at,
+                'disposed_by'         => $actor,
+                'disposed_at'         => now(),
+            ]);
+
+            DB::table('document_has_types')->where('document_id', $document->id)->delete();
+            DB::table('documents')->where('id', $document->id)->delete();
+
+            AuditTrialController::log(
+                'Huỷ hồ sơ',
+                'documents',
+                $document->id,
+                'Hồ sơ ' . $document->code . ' tại vị trí ' . ($location->code ?? $document->location_id),
+                'Huỷ hồ sơ ' . $document->code . ' - ' . $document->name
+                    . ' | Trả vị trí trống: ' . ($location->code ?? $document->location_id)
+                    . ' | Lý do: ' . $reason
+            );
+
+            return ['status' => 200, 'message' => 'Đã huỷ hồ sơ ' . $document->code . ', vị trí đã được trả về trống.'];
+        });
+
+        return response()->json(['message' => $result['message']], $result['status']);
+    }
+
+    // DataTables server-side cho tab Lịch sử huỷ hồ sơ
+    public function disposals(Request $request)
+    {
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return response()->json(['error' => 'Phiên làm việc hết hạn'], 401);
+        }
+
+        $base = DB::table('document_disposals')
+            ->where('department_id', session('user')['selected_department_id']);
+
+        $recordsTotal = (clone $base)->count();
+
+        $keyword = trim($request->input('search.value', ''));
+        if ($keyword !== '') {
+            $base->where(function ($q) use ($keyword) {
+                $q->where('code', 'like', "%{$keyword}%")
+                    ->orWhere('name', 'like', "%{$keyword}%")
+                    ->orWhere('location_code', 'like', "%{$keyword}%")
+                    ->orWhere('location_name', 'like', "%{$keyword}%")
+                    ->orWhere('reason', 'like', "%{$keyword}%")
+                    ->orWhere('disposed_by', 'like', "%{$keyword}%");
+            });
+        }
+
+        $recordsFiltered = (clone $base)->count();
+
+        // Chỉ số cột phải khớp với thứ tự <th> của bảng lịch sử huỷ trong dataTable.blade.php
+        $sortable = [1 => 'location_code', 2 => 'name', 5 => 'disposed_by', 6 => 'disposed_at'];
+        $orderCol = $sortable[(int) $request->input('order.0.column')] ?? 'disposed_at';
+        $orderDir = $request->input('order.0.dir') === 'asc' ? 'asc' : 'desc';
+
+        $start = max(0, (int) $request->input('start', 0));
+        $length = (int) $request->input('length', 10);
+        $length = $length > 0 ? min($length, 500) : 500;
+
+        $rows = $base->orderBy($orderCol, $orderDir)
+            ->orderByDesc('id')
+            ->offset($start)
+            ->limit($length)
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->location_path = implode(' / ', array_filter([$row->warehouse_name, $row->shelf_name, $row->tier_name]));
+            $row->disposed_display = $row->disposed_at ? \Carbon\Carbon::parse($row->disposed_at)->format('d/m/Y H:i') : null;
+        }
+
+        return response()->json([
+            'draw' => (int) $request->input('draw'),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $rows,
         ]);
-
-        return redirect()->back()->with('success', 'Đã thay đổi trạng thái thành công!');
     }
 }

@@ -27,20 +27,20 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thuộc Phòng</label>
-                        <select name="room_id" id="update_room" class="form-control">
-                            <option value="">-- Không chọn --</option>
-                            @foreach($rooms as $rm)
-                                <option value="{{ $rm->id }}">{{ $rm->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Thuộc Kệ (Shelf)</label>
                         <select name="shelf_id" id="update_shelf" class="form-control">
                             <option value="">-- Không chọn --</option>
                             @foreach($shelves as $sh)
-                                <option value="{{ $sh->id }}">{{ $sh->name }}</option>
+                                <option value="{{ $sh->id }}" data-wh="{{ $sh->warehouse_id }}">{{ $sh->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Thuộc Tầng (Tier)</label>
+                        <select name="tier_id" id="update_tier" class="form-control">
+                            <option value="">-- Không chọn --</option>
+                            @foreach($tiers as $t)
+                                <option value="{{ $t->id }}" data-shelf="{{ $t->shelf_id }}" data-wh="{{ $t->warehouse_id }}">{{ $t->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -51,6 +51,10 @@
                     <div class="form-group">
                         <label>Tên Vị trí <span class="text-danger">*</span></label>
                         <input type="text" name="name" id="update_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Thứ Tự Ô Trong Tầng</label>
+                        <input type="number" name="position" id="update_position" class="form-control" min="1">
                     </div>
                 </div>
                 <div class="modal-footer">

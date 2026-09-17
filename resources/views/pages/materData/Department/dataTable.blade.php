@@ -5,7 +5,8 @@
             <h3 class="card-title">Danh sách Phòng Ban</h3>
         </div>
         <div class="card-body">
-            <button class="btn btn-success btn-create mb-2" data-toggle="modal" data-target="#createModal" style="width: 155px">
+            <button class="btn btn-success btn-create mb-2" data-toggle="modal" data-target="#createModal" style="width: 155px"
+                {{ user_has_permission(session('user')['userId'], 'department.create', 'disabled') }}>
                 <i class="fas fa-plus"></i> Thêm mới
             </button>
 
@@ -37,12 +38,13 @@
                             <td>{{ $data->prepareBy ?? '-' }}</td>
                             <td>{{ \Carbon\Carbon::parse($data->created_at)->format('d/m/Y') }}</td>
                             <td class="text-center align-middle">
-                                <button type="button" class="btn btn-warning btn-edit mb-1" 
-                                    data-id="{{ $data->id }}" 
-                                    data-shortname="{{ $data->shortName }}" 
+                                <button type="button" class="btn btn-warning btn-edit mb-1"
+                                    data-id="{{ $data->id }}"
+                                    data-shortname="{{ $data->shortName }}"
                                     data-name="{{ $data->name }}"
-                                    data-toggle="modal" 
-                                    data-target="#updateModal">
+                                    data-toggle="modal"
+                                    data-target="#updateModal"
+                                    {{ user_has_permission(session('user')['userId'], 'department.update', 'disabled') }}>
                                     <i class="fas fa-edit"></i>
                                 </button>
 
@@ -50,9 +52,10 @@
                                     @csrf
                                     <input type="hidden" name="id" value="{{ $data->id }}">
                                     <input type="hidden" name="active" value="{{ $data->active }}">
-                                    <button type="submit" class="btn btn-{{ $data->active ? 'danger' : 'success' }} btn-deactive-confirm" 
-                                        data-name="{{ $data->name }}" 
-                                        data-active="{{ $data->active }}">
+                                    <button type="submit" class="btn btn-{{ $data->active ? 'danger' : 'success' }} btn-deactive-confirm"
+                                        data-name="{{ $data->name }}"
+                                        data-active="{{ $data->active }}"
+                                        {{ user_has_permission(session('user')['userId'], 'department.deActive', 'disabled') }}>
                                         <i class="fas fa-{{ $data->active ? 'lock' : 'unlock' }}"></i>
                                     </button>
                                 </form>
@@ -125,6 +128,15 @@
             info: true,
             autoWidth: false,
             pageLength: 25,
+            order: [[1, 'asc']],
+            columnDefs: [{
+                targets: 0,
+                orderable: false,
+                searchable: false,
+                render: function (data, type, row, meta) {
+                    return meta.row + meta.settings._iDisplayStart + 1;
+                }
+            }],
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Tất cả"]],
             language: {
                 search: "Tìm kiếm:",

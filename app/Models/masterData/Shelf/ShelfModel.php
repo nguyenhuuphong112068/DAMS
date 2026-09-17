@@ -14,14 +14,27 @@ class ShelfModel extends Model
     protected $fillable = [
         'code',
         'name',
+        'department_id',
+        'warehouse_id',
         'room_id',
         'status_id',
+        'active',
         'created_by',
     ];
+
+    public function warehouse()
+    {
+        return $this->belongsTo(\App\Models\masterData\Warehouse\WarehouseModel::class, 'warehouse_id');
+    }
 
     public function room()
     {
         return $this->belongsTo(\App\Models\masterData\Room\RoomModel::class, 'room_id');
+    }
+
+    public function tiers()
+    {
+        return $this->hasMany(\App\Models\masterData\Tier\TierModel::class, 'shelf_id');
     }
 
     public function locations()

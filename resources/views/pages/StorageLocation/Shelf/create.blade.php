@@ -31,21 +31,18 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thuộc Phòng (Nếu có)</label>
-                        <select name="room_id" class="form-control">
-                            <option value="">-- Không chọn --</option>
-                            @foreach ($rooms as $rm)
-                                <option value="{{ $rm->id }}">{{ $rm->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Mã Kệ <span class="text-danger">*</span></label>
-                        <input type="text" name="code" class="form-control" required>
+                        <input type="text" name="code" class="form-control" placeholder="VD: KE-01" required>
                     </div>
                     <div class="form-group">
                         <label>Tên Kệ <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" required>
+                        <input type="text" name="name" class="form-control" placeholder="VD: Kệ hồ sơ 01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Số Tầng Tối Đa</label>
+                        <input type="number" name="max_tiers" class="form-control" min="1" placeholder="VD: 5">
+                        <small class="form-text text-muted">Dùng để vẽ sơ đồ kho: kệ sẽ hiện đủ số tầng này, tầng chưa
+                            khai báo hiện dạng nét đứt.</small>
                     </div>
                 </div>
                 <div class="modal-footer">

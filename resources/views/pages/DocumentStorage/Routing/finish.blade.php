@@ -1,10 +1,10 @@
-<div class="modal fade" id="finishRoutingModal" tabindex="-1" role="dialog"
-    aria-labelledby="finishRoutingModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
+<div class="modal fade" id="finishModal" tabindex="-1" role="dialog" aria-labelledby="finishModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="finishRoutingModalLabel">
-                    <i class="fas fa-archive"></i> Bước 3 &mdash; Kết thúc &amp; xác định vị trí lưu
+                <h5 class="modal-title" id="finishModalLabel">
+                    <i class="fas fa-check-circle"></i> Kết Thúc Luân Chuyển &amp; Lưu Vào Kho
                 </h5>
                 <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -13,10 +13,11 @@
             <form action="{{ route('pages.documentStorage.routing.finish') }}" method="POST">
                 @csrf
                 <input type="hidden" name="routing_id" id="finish_routing_id">
+
                 <div class="modal-body">
-                    <div class="alert alert-light border mb-3">
-                        <b>Hồ sơ:</b> <span id="finish_doc_label"></span>
-                    </div>
+                    <p class="text-muted mb-3">
+                        Chọn vị trí lưu trữ hồ sơ để hoàn tất luân chuyển. Hồ sơ sẽ được cập nhật trạng thái "Đã lưu trữ".
+                    </p>
 
                     <div class="row">
                         <div class="col-md-6">
@@ -32,12 +33,12 @@
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Phòng <span class="text-danger">*</span></label>
-                                <select id="finish_room_id" class="form-control" required disabled>
-                                    <option value="">-- Chọn Phòng --</option>
-                                    @foreach ($rooms as $room)
-                                        <option value="{{ $room->id }}" data-warehouse="{{ $room->warehouse_id }}">
-                                            {{ $room->name }}</option>
+                                <label>Kệ <span class="text-danger">*</span></label>
+                                <select id="finish_shelf_id" class="form-control" required disabled>
+                                    <option value="">-- Chọn Kệ --</option>
+                                    @foreach ($shelves as $shelf)
+                                        <option value="{{ $shelf->id }}" data-warehouse="{{ $shelf->warehouse_id }}">
+                                            {{ $shelf->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -47,12 +48,12 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label>Kệ <span class="text-danger">*</span></label>
-                                <select id="finish_shelf_id" class="form-control" required disabled>
-                                    <option value="">-- Chọn Kệ --</option>
-                                    @foreach ($shelves as $shelf)
-                                        <option value="{{ $shelf->id }}" data-room="{{ $shelf->room_id }}">
-                                            {{ $shelf->name }}</option>
+                                <label>Tầng <span class="text-danger">*</span></label>
+                                <select id="finish_tier_id" class="form-control" required disabled>
+                                    <option value="">-- Chọn Tầng --</option>
+                                    @foreach ($tiers as $tier)
+                                        <option value="{{ $tier->id }}" data-shelf="{{ $tier->shelf_id }}" data-warehouse="{{ $tier->warehouse_id }}">
+                                            {{ $tier->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -64,7 +65,7 @@
                                     disabled>
                                     <option value="">-- Chọn Vị trí --</option>
                                     @foreach ($locations as $loc)
-                                        <option value="{{ $loc->id }}" data-shelf="{{ $loc->shelf_id }}">
+                                        <option value="{{ $loc->id }}" data-tier="{{ $loc->tier_id }}" data-shelf="{{ $loc->shelf_id }}">
                                             {{ $loc->name }}</option>
                                     @endforeach
                                 </select>
@@ -100,34 +101,31 @@
 
 <script>
     $(document).ready(function() {
-        // Lọc phân cấp Kho -> Phòng -> Kệ -> Vị trí
+        // Lọc phân cấp Kho -> Kệ -> Tầng -> Vị trí
         const warehouseSelect = $('#finish_warehouse_id');
-        const roomSelect = $('#finish_room_id');
         const shelfSelect = $('#finish_shelf_id');
+        const tierSelect = $('#finish_tier_id');
         const locationSelect = $('#finish_location_id');
 
         warehouseSelect.on('change', function() {
             const whId = $(this).val();
-            roomSelect.val('').prop('disabled', !whId);
-            roomSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr(
-                'data-warehouse') == whId).show();
-            shelfSelect.val('').prop('disabled', true);
-            locationSelect.val('').prop('disabled', true);
-        });
-
-        roomSelect.on('change', function() {
-            const roomId = $(this).val();
-            shelfSelect.val('').prop('disabled', !roomId);
-            shelfSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-room') ==
-                roomId).show();
+            shelfSelect.val('').prop('disabled', !whId);
+            shelfSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-warehouse') == whId || !$(el).attr('data-warehouse')).show();
+            tierSelect.val('').prop('disabled', true);
             locationSelect.val('').prop('disabled', true);
         });
 
         shelfSelect.on('change', function() {
             const shelfId = $(this).val();
-            locationSelect.val('').prop('disabled', !shelfId);
-            locationSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr(
-                'data-shelf') == shelfId).show();
+            tierSelect.val('').prop('disabled', !shelfId);
+            tierSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-shelf') == shelfId).show();
+            locationSelect.val('').prop('disabled', true);
+        });
+
+        tierSelect.on('change', function() {
+            const tierId = $(this).val();
+            locationSelect.val('').prop('disabled', !tierId);
+            locationSelect.find('option').hide().filter((i, el) => !$(el).val() || $(el).attr('data-tier') == tierId).show();
         });
     });
 </script>

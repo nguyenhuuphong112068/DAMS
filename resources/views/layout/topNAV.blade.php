@@ -11,7 +11,7 @@
     <!-- Title Center -->
     <div class="mx-auto text-center">
         <h4 class="library-title mb-0" style="color: var(--primary-navy); letter-spacing: 1px;">
-            {{ session('title', 'SỔ THEO DÕI CẤP LẠI HỒ SƠ') }}
+            {{ session('title', 'QUẢN LÝ KHO HỒ SƠ') }}
         </h4>
     </div>
 

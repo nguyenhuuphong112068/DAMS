@@ -13,3 +13,8 @@
   @include('pages.User.permission.dataTable')
 @endsection
 
+@section('model')
+  @include('pages.User.permission.create')
+  @include('pages.User.permission.update')
+@endsection
+

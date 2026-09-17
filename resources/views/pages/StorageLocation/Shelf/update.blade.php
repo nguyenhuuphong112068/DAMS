@@ -27,21 +27,16 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thuộc Phòng</label>
-                        <select name="room_id" id="update_room" class="form-control">
-                            <option value="">-- Không chọn --</option>
-                            @foreach($rooms as $rm)
-                                <option value="{{ $rm->id }}">{{ $rm->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Mã Kệ <span class="text-danger">*</span></label>
                         <input type="text" name="code" id="update_code" class="form-control" required>
                     </div>
                     <div class="form-group">
                         <label>Tên Kệ <span class="text-danger">*</span></label>
                         <input type="text" name="name" id="update_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Số Tầng Tối Đa</label>
+                        <input type="number" name="max_tiers" id="update_max_tiers" class="form-control" min="1">
                     </div>
                 </div>
                 <div class="modal-footer">

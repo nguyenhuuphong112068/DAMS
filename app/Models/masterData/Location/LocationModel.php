@@ -14,10 +14,20 @@ class LocationModel extends Model
     protected $fillable = [
         'code',
         'name',
+        'department_id',
+        'warehouse_id',
         'shelf_id',
+        'tier_id',
+        'room_id',
         'status_id',
+        'active',
         'created_by',
     ];
+
+    public function tier()
+    {
+        return $this->belongsTo(\App\Models\masterData\Tier\TierModel::class, 'tier_id');
+    }
 
     public function shelf()
     {

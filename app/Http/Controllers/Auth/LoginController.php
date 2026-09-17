@@ -7,6 +7,7 @@ use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
 
 class LoginController extends Controller
@@ -54,7 +55,10 @@ class LoginController extends Controller
 
         // Ngoài Admin, menu trái chỉ có mỗi "Xin cấp lại Hồ sơ" nên đưa thẳng vào đó,
         // không bắt đi vòng qua trang chủ.
-        if (! user_has_any_role($getUser->id, ['Admin'])) {
+        // Route::has(): server thiếu route (deploy sót file / route cache cũ) thì lùi về
+        // trang chủ, không để đăng nhập chết hẳn khiến không ai vào được hệ thống.
+        if (! user_has_any_role($getUser->id, ['Admin'])
+            && Route::has('pages.documentStorage.reissue.list')) {
             return redirect()->route('pages.documentStorage.reissue.list');
         }
 

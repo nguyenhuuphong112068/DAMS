@@ -5,7 +5,8 @@
             <h3 class="card-title">Danh sách Trạng Thái</h3>
         </div>
         <div class="card-body">
-            <button class="btn btn-success btn-create mb-2" data-toggle="modal" data-target="#createModal" style="width: 155px">
+            <button class="btn btn-success btn-create mb-2" data-toggle="modal" data-target="#createModal" style="width: 155px"
+                {{ user_has_permission(session('user')['userId'], 'status.create', 'disabled') }}>
                 <i class="fas fa-plus"></i> Thêm mới
             </button>
 
@@ -35,11 +36,12 @@
                             <td>{{ $data->prepareBy ?? '-' }}</td>
                             <td>{{ \Carbon\Carbon::parse($data->created_at)->format('d/m/Y') }}</td>
                             <td class="text-center align-middle">
-                                <button type="button" class="btn btn-warning btn-edit mb-1" 
-                                    data-id="{{ $data->id }}" 
+                                <button type="button" class="btn btn-warning btn-edit mb-1"
+                                    data-id="{{ $data->id }}"
                                     data-name="{{ $data->name }}"
-                                    data-toggle="modal" 
-                                    data-target="#updateModal">
+                                    data-toggle="modal"
+                                    data-target="#updateModal"
+                                    {{ user_has_permission(session('user')['userId'], 'status.update', 'disabled') }}>
                                     <i class="fas fa-edit"></i>
                                 </button>
 
@@ -47,9 +49,10 @@
                                     @csrf
                                     <input type="hidden" name="id" value="{{ $data->id }}">
                                     <input type="hidden" name="active" value="{{ $data->active }}">
-                                    <button type="submit" class="btn btn-{{ $data->active ? 'danger' : 'success' }} btn-deactive-confirm" 
-                                        data-name="{{ $data->name }}" 
-                                        data-active="{{ $data->active }}">
+                                    <button type="submit" class="btn btn-{{ $data->active ? 'danger' : 'success' }} btn-deactive-confirm"
+                                        data-name="{{ $data->name }}"
+                                        data-active="{{ $data->active }}"
+                                        {{ user_has_permission(session('user')['userId'], 'status.deActive', 'disabled') }}>
                                         <i class="fas fa-{{ $data->active ? 'lock' : 'unlock' }}"></i>
                                     </button>
                                 </form>

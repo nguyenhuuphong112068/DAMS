@@ -27,15 +27,15 @@ class DocumentRoutingController extends Controller
                 ->leftJoin('deparments', 'document_routings.department_id', '=', 'deparments.id')
                 ->leftJoin('locations', 'document_routings.final_location_id', '=', 'locations.id')
                 ->leftJoin('warehouses', 'locations.warehouse_id', '=', 'warehouses.id')
-                ->leftJoin('rooms', 'locations.room_id', '=', 'rooms.id')
                 ->leftJoin('shelves', 'locations.shelf_id', '=', 'shelves.id')
+                ->leftJoin('tiers', 'locations.tier_id', '=', 'tiers.id')
                 ->select(
                     'document_routings.*',
                     'deparments.name as department_name',
                     'locations.name as location_name',
                     'warehouses.name as warehouse_name',
-                    'rooms.name as room_name',
-                    'shelves.name as shelf_name'
+                    'shelves.name as shelf_name',
+                    'tiers.name as tier_name'
                 )
                 ->orderBy('document_routings.created_at', 'desc')
                 ->get();
@@ -80,8 +80,8 @@ class DocumentRoutingController extends Controller
 
             // Vị trí lưu trữ cho bước kết thúc
             $warehouses = DB::table('warehouses')->where('active', true)->get();
-            $rooms      = DB::table('rooms')->where('active', true)->get();
             $shelves    = DB::table('shelves')->where('active', true)->get();
+            $tiers      = DB::table('tiers')->where('active', true)->get();
             $locations  = DB::table('locations')
                 ->where('department_id', $userDeptId)
                 ->where('status_id', 1)
@@ -94,8 +94,8 @@ class DocumentRoutingController extends Controller
                 'departments'     => $departments,
                 'users'           => $users,
                 'warehouses'      => $warehouses,
-                'rooms'           => $rooms,
                 'shelves'         => $shelves,
+                'tiers'           => $tiers,
                 'locations'       => $locations,
                 'inProgressCount' => $inProgressCount,
                 'waitingCount'    => $waitingCount,

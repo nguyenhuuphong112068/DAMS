@@ -11,7 +11,7 @@ class DepartmentController extends Controller
 {
     public function index()
     {
-        $datas = DB::table('deparments')->orderBy('name', 'asc')->get();
+        $datas = DB::table('deparments')->orderBy('shortName', 'asc')->get();
         session()->put(['title' => 'DỮ LIỆU GỐC - PHÒNG BAN']);
         return view('pages.materData.Department.list', ['datas' => $datas]);
     }
