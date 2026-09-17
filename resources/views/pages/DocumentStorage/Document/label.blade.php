@@ -243,9 +243,9 @@
                             </span>
                         </div>
                     @else
-                        <span class="qr-empty">Mã "{{ $document->code }}" không tạo được QR</span>
+                        <span class="qr-empty">Mã "{{ $qrValue }}" không tạo được QR</span>
                     @endif
-                    <div class="qr-code">{{ $document->code }}</div>
+                    <div class="qr-code">{{ $qrValue }}</div>
                 </div>
             </div>
         </div>

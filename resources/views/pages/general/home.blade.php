@@ -146,7 +146,7 @@
                                 </div>
                                 <span class="home-card-arrow"><i class="fas fa-arrow-right"></i></span>
                             </div>
-                            <div class="home-card-title">Quản lý Tài liệu</div>
+                            <div class="home-card-title">Quản lý lưu trữ</div>
                             <div class="home-card-desc">Danh mục hồ sơ tài liệu, in tem nhãn mã QR và thao tác xuất nhập lưu
                                 trữ.</div>
                         </a>

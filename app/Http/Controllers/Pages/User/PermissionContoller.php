@@ -17,7 +17,7 @@ class PermissionContoller extends Controller
         1 => 'Dữ Liệu Gốc',
         2 => 'Vị Trí Lưu Trữ',
         3 => 'Sơ Đồ Kho',
-        4 => 'Quản Lý Tài Liệu',
+        4 => 'Quản Lý Lưu Trữ',
         5 => 'Luân Chuyển Hồ Sơ',
         7 => 'Phân Quyền & Người Dùng',
         8 => 'Khác',

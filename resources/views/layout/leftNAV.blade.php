@@ -238,13 +238,13 @@
                     </li>
                 @endif
 
-                <!-- Quản lý Tài liệu -->
+                <!-- Quản lý lưu trữ -->
                 @if ($canViewDocument)
                     <li class="nav-item">
                         <a href="{{ route('pages.documentStorage.document.list') }}"
                             class="nav-link {{ str_contains(url()->current(), 'documentStorage/document') ? 'active' : '' }}">
                             <i class="fas fa-file-contract"></i>
-                            <p>Quản lý Tài liệu</p>
+                            <p>Quản lý lưu trữ</p>
                         </a>
                     </li>
                 @endif

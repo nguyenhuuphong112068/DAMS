@@ -25,8 +25,8 @@ return new class extends Migration
         // 3. Sơ Đồ Kho
         ['name' => 'map.view',          'display_name' => 'Xem Sơ Đồ Kho',          'permission_group' => 3],
 
-        // 4. Quản Lý Tài Liệu
-        ['name' => 'document.view',     'display_name' => 'Xem Quản Lý Tài Liệu',   'permission_group' => 4],
+        // 4. Quản Lý Lưu Trữ
+        ['name' => 'document.view',     'display_name' => 'Xem Quản Lý Lưu Trữ',   'permission_group' => 4],
 
         // 5. Luân Chuyển Hồ Sơ
         ['name' => 'routing.view',      'display_name' => 'Xem Luân Chuyển Hồ Sơ',  'permission_group' => 5],

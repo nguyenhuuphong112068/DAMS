@@ -37,7 +37,6 @@ return new class extends Migration
         ['name' => 'location.create', 'display_name' => 'Thêm Vị Trí', 'permission_group' => 2],
         ['name' => 'location.update', 'display_name' => 'Sửa Vị Trí', 'permission_group' => 2],
         ['name' => 'location.deActive', 'display_name' => 'Vô Hiệu/Kích Hoạt Vị Trí', 'permission_group' => 2],
-
         // 4. Quản Lý Tài Liệu
         ['name' => 'document.create', 'display_name' => 'Thêm Tài Liệu', 'permission_group' => 4],
         ['name' => 'document.update', 'display_name' => 'Sửa Tài Liệu', 'permission_group' => 4],

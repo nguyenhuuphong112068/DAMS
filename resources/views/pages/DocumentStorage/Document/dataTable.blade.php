@@ -23,7 +23,7 @@
         white-space: nowrap;
     }
 
-    .search-section .form-row > [class*="col"] {
+    .search-section .form-row>[class*="col"] {
         margin-bottom: 6px;
     }
 
@@ -77,137 +77,145 @@
     </ul>
 
     <div class="tab-content">
-    <div class="tab-pane fade show active" id="tab-documents" role="tabpanel">
-    <div class="search-section mt-3 mx-3">
-        <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
-            <div class="search-title mr-auto"><i class="fas fa-search text-primary"></i> TÌM KIẾM TÀI LIỆU</div>
-            @if ($expiredCount > 0)
-                <span class="badge badge-danger px-2 py-1" style="font-size: 0.8rem; cursor: pointer;"
-                    id="btn-filter-expired" title="Lọc tài liệu đã hết hạn">
-                    <i class="fas fa-exclamation-triangle"></i> {{ $expiredCount }} tài liệu hết hạn
-                </span>
-            @endif
-            <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#createModal"
-                style="font-weight: 600;"
-                {{ user_has_permission(session('user')['userId'], 'document.create', 'disabled') }}>
-                <i class="fas fa-plus-circle"></i> THÊM TÀI LIỆU
-            </button>
-            @if (isset(session('user')['userGroup']) && session('user')['userGroup'] == 'Admin')
-                <button class="btn btn-dark btn-sm" id="btn-config-camera" style="font-weight: 600;"
-                    title="Cấu hình camera cho mạng nội bộ">
-                    <i class="fas fa-tools"></i> CÀI ĐẶT CAMERA
-                </button>
-            @endif
-        </div>
-        <div class="form-row">
-            <div class="col-lg-3 col-md-6">
-                <div class="input-group">
-                    <div class="input-group-prepend">
-                        <button class="btn btn-primary" id="btn-scan-qr" type="button" title="Quét mã bằng Camera">
-                            <i class="fas fa-camera"></i>
+        <div class="tab-pane fade show active" id="tab-documents" role="tabpanel">
+            <div class="search-section mt-3 mx-3">
+                <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+                    <div class="search-title mr-auto"><i class="fas fa-search text-primary"></i> TÌM KIẾM TÀI LIỆU</div>
+                    @if ($expiredCount > 0)
+                        <span class="badge badge-danger px-2 py-1" style="font-size: 0.8rem; cursor: pointer;"
+                            id="btn-filter-expired" title="Lọc tài liệu đã hết hạn">
+                            <i class="fas fa-exclamation-triangle"></i> {{ $expiredCount }} tài liệu hết hạn
+                        </span>
+                    @endif
+                    <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#createModal"
+                        style="font-weight: 600;"
+                        {{ user_has_permission(session('user')['userId'], 'document.create', 'disabled') }}>
+                        <i class="fas fa-plus-circle"></i> THÊM TÀI LIỆU
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btn-print-binder-selected" style="font-weight: 600;"
+                        disabled
+                        title="Tick chọn tài liệu ở cột STT (chọn được qua nhiều trang), rồi bấm để in nhãn gáy cùng lúc">
+                        <i class="fas fa-tags"></i> IN NHÃN BINDER (<span id="binder-selected-count">0</span>)
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm d-none" id="btn-clear-binder-selected"
+                        title="Bỏ chọn tất cả">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    @if (isset(session('user')['userGroup']) && session('user')['userGroup'] == 'Admin')
+                        <button class="btn btn-dark btn-sm" id="btn-config-camera" style="font-weight: 600;"
+                            title="Cấu hình camera cho mạng nội bộ">
+                            <i class="fas fa-tools"></i> CÀI ĐẶT CAMERA
+                        </button>
+                    @endif
+                </div>
+                <div class="form-row">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <button class="btn btn-primary" id="btn-scan-qr" type="button"
+                                    title="Quét mã bằng Camera">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                            <input type="text" id="quick-search-input" class="form-control"
+                                placeholder="Tên, mã hoặc quét QR...">
+                        </div>
+                    </div>
+                    <div class="col-lg col-md-3 col-6">
+                        <select id="filter-type" class="form-control select2" style="width: 100%;">
+                            <option value="">Tất cả loại</option>
+                            @foreach ($document_types as $type)
+                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg col-md-3 col-6">
+                        <select id="filter-warehouse" class="form-control select2" style="width: 100%;">
+                            <option value="">Tất cả kho</option>
+                            @foreach ($warehouses as $w)
+                                <option value="{{ $w->id }}">{{ $w->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-lg col-md-3 col-6">
+                        <select id="filter-shelf" class="form-control select2" style="width: 100%;">
+                            <option value="">Tất cả kệ</option>
+                        </select>
+                    </div>
+                    <div class="col-lg col-md-3 col-6">
+                        <select id="filter-tier" class="form-control select2" style="width: 100%;">
+                            <option value="">Tất cả tầng</option>
+                        </select>
+                    </div>
+                    <div class="col-lg col-md-3 col-6">
+                        <select id="filter-location" class="form-control select2" style="width: 100%;">
+                            <option value="">Tất cả vị trí</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-reset-filter"
+                            title="Xóa bộ lọc">
+                            <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
-                    <input type="text" id="quick-search-input" class="form-control"
-                        placeholder="Tên, mã hoặc quét QR...">
                 </div>
             </div>
-            <div class="col-lg col-md-3 col-6">
-                <select id="filter-type" class="form-control select2" style="width: 100%;">
-                    <option value="">Tất cả loại</option>
-                    @foreach ($document_types as $type)
-                        <option value="{{ $type->id }}">{{ $type->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-lg col-md-3 col-6">
-                <select id="filter-expiry-status" class="form-control select2" style="width: 100%;">
-                    <option value="">Tất cả hiệu lực</option>
-                    <option value="valid">Còn hiệu lực</option>
-                    <option value="expired">Đã hết hạn</option>
-                </select>
-            </div>
-            <div class="col-lg col-md-3 col-6">
-                <select id="filter-warehouse" class="form-control select2" style="width: 100%;">
-                    <option value="">Tất cả kho</option>
-                    @foreach ($warehouses as $w)
-                        <option value="{{ $w->id }}">{{ $w->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-lg col-md-3 col-6">
-                <select id="filter-shelf" class="form-control select2" style="width: 100%;">
-                    <option value="">Tất cả kệ</option>
-                </select>
-            </div>
-            <div class="col-lg col-md-3 col-6">
-                <select id="filter-tier" class="form-control select2" style="width: 100%;">
-                    <option value="">Tất cả tầng</option>
-                </select>
-            </div>
-            <div class="col-lg col-md-3 col-6">
-                <select id="filter-location" class="form-control select2" style="width: 100%;">
-                    <option value="">Tất cả vị trí</option>
-                </select>
-            </div>
-            <div class="col-auto">
-                <button type="button" class="btn btn-outline-secondary" id="btn-reset-filter" title="Xóa bộ lọc">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-            </div>
-        </div>
-    </div>
 
-    <div class="card shadow-none bg-transparent mx-3">
-        <div class="card-body p-0">
-            <table id="data_table_document" class="table table-bordered table-striped w-100">
-                <thead>
-                    <tr>
-                        <th>STT</th>
-                        <th>Vị trí lưu trữ</th>
-                        <th class="text-center">QR Code</th>
-                        <th>Tên Tài liệu</th>
-                        <th>Loại Tài liệu</th>
-                        <th>Ngày hết hạn</th>
-                        <th>Trạng Thái</th>
-                        <th>Thao Tác</th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <div class="tab-pane fade" id="tab-disposals" role="tabpanel">
-        <div class="search-section mt-3 mx-3" style="border-left-color: #dc3545;">
-            <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
-                <div class="search-title mr-auto"><i class="fas fa-history text-danger"></i> LỊCH SỬ HUỶ HỒ SƠ</div>
-            </div>
-            <div class="form-row">
-                <div class="col-lg-4 col-md-6">
-                    <input type="text" id="disposal-search-input" class="form-control"
-                        placeholder="Mã, tên hồ sơ, vị trí, lý do, người huỷ...">
+            <div class="card shadow-none bg-transparent mx-3">
+                <div class="card-body p-0">
+                    <table id="data_table_document" class="table table-bordered table-striped w-100">
+                        <thead>
+                            <tr>
+                                <th class="text-nowrap">
+                                    <input type="checkbox" id="doc-select-page" class="mr-1 align-middle"
+                                        title="Chọn / bỏ chọn cả trang để in nhãn gáy"> STT
+                                </th>
+                                <th>Vị trí lưu trữ</th>
+                                <th class="text-center">QR Code</th>
+                                <th>Tên Tài liệu</th>
+                                <th>Loại Tài liệu</th>
+                                <th>Ngày hết hạn</th>
+                                <th>Trạng Thái</th>
+                                <th>Thao Tác</th>
+                            </tr>
+                        </thead>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-none bg-transparent mx-3">
-            <div class="card-body p-0">
-                <table id="data_table_disposal" class="table table-bordered table-striped w-100">
-                    <thead>
-                        <tr>
-                            <th>STT</th>
-                            <th>Vị trí đã trả</th>
-                            <th>Tên Tài liệu</th>
-                            <th>Loại Tài liệu</th>
-                            <th>Lý do huỷ</th>
-                            <th>Người huỷ</th>
-                            <th>Thời gian huỷ</th>
-                        </tr>
-                    </thead>
-                </table>
+        <div class="tab-pane fade" id="tab-disposals" role="tabpanel">
+            <div class="search-section mt-3 mx-3" style="border-left-color: #dc3545;">
+                <div class="d-flex flex-wrap align-items-center mb-2" style="gap: 8px;">
+                    <div class="search-title mr-auto"><i class="fas fa-history text-danger"></i> LỊCH SỬ HUỶ HỒ SƠ
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="col-lg-4 col-md-6">
+                        <input type="text" id="disposal-search-input" class="form-control"
+                            placeholder="Mã, tên hồ sơ, vị trí, lý do, người huỷ...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-none bg-transparent mx-3">
+                <div class="card-body p-0">
+                    <table id="data_table_disposal" class="table table-bordered table-striped w-100">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Vị trí đã trả</th>
+                                <th>Tên Tài liệu</th>
+                                <th>Loại Tài liệu</th>
+                                <th>Lý do huỷ</th>
+                                <th>Người huỷ</th>
+                                <th>Thời gian huỷ</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
     </div>
 </div>
 
@@ -278,7 +286,8 @@
             });
             $tier.find('option').each(function() {
                 const tierShelf = tierToShelf[this.value];
-                const visible = !this.value || (shelfId ? tierShelf == shelfId : (!whId || shelfToWarehouse[tierShelf] == whId));
+                const visible = !this.value || (shelfId ? tierShelf == shelfId : (!whId || shelfToWarehouse[
+                    tierShelf] == whId));
                 $(this).toggle(visible);
             });
         }
@@ -345,9 +354,10 @@
                 }),
                 processResults: data => data
             },
-            templateResult: item => item.path
-                ? $('<div>').append($('<div>').text(item.text), $('<small class="text-muted">').text(item.path))
-                : item.text
+            templateResult: item => item.path ?
+                $('<div>').append($('<div>').text(item.text), $('<small class="text-muted">').text(item
+                    .path)) :
+                item.text
         });
 
         $loc.on('select2:select', function(e) {
@@ -380,8 +390,14 @@
         const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
 
         // Dữ liệu phân cấp cho bộ lọc Kho > Kệ > Tầng > Vị trí
-        const filterShelves = {!! json_encode($shelves->map(fn($s) => ['id' => $s->id, 'name' => $s->name, 'warehouse_id' => $s->warehouse_id])->values(), JSON_HEX_TAG) !!};
-        const filterTiers = {!! json_encode($tiers->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'shelf_id' => $t->shelf_id])->values(), JSON_HEX_TAG) !!};
+        const filterShelves = {!! json_encode(
+            $shelves->map(fn($s) => ['id' => $s->id, 'name' => $s->name, 'warehouse_id' => $s->warehouse_id])->values(),
+            JSON_HEX_TAG,
+        ) !!};
+        const filterTiers = {!! json_encode(
+            $tiers->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'shelf_id' => $t->shelf_id])->values(),
+            JSON_HEX_TAG,
+        ) !!};
 
         function fillOptions($select, items, placeholder) {
             const current = $select.val();
@@ -396,15 +412,22 @@
         function refreshHierarchyOptions() {
             const warehouse = $('#filter-warehouse').val();
             // Kệ/Tầng/Vị trí chỉ hiện khi đã chọn cấp cha, tránh danh sách dài trùng tên
-            fillOptions($('#filter-shelf'), warehouse ? filterShelves.filter(s => String(s.warehouse_id) === warehouse) : [], 'Tất cả kệ');
+            fillOptions($('#filter-shelf'), warehouse ? filterShelves.filter(s => String(s.warehouse_id) ===
+                warehouse) : [], 'Tất cả kệ');
             const shelf = $('#filter-shelf').val();
-            fillOptions($('#filter-tier'), shelf ? filterTiers.filter(t => String(t.shelf_id) === shelf) : [], 'Tất cả tầng');
+            fillOptions($('#filter-tier'), shelf ? filterTiers.filter(t => String(t.shelf_id) === shelf) : [],
+                'Tất cả tầng');
         }
 
         const csrfToken = '{{ csrf_token() }}';
         const disposeUrl = '{{ route('pages.documentStorage.document.dispose') }}';
+        const binderLabelUrl = '{{ route('pages.documentStorage.document.binderLabel') }}';
+        // Tài liệu đã tick để in nhãn gáy hàng loạt; giữ qua các lần chuyển trang / lọc
+        const selectedDocs = new Set();
+        const BINDER_MAX_DOCS = 100;
         const canUpdateDocument = @json($canUpdate);
         const canDisposeDocument = @json($canDispose);
+        let expiryFilter = '';
 
         const table = $('#data_table_document').DataTable({
             autoWidth: false,
@@ -417,12 +440,14 @@
                 [10, 25, 50, 100, 500, -1],
                 [10, 25, 50, 100, 500, 'Tất cả']
             ],
-            order: [[1, 'asc']],
+            order: [
+                [1, 'asc']
+            ],
             ajax: {
                 url: '{{ route('pages.documentStorage.document.data') }}',
                 data: function(d) {
                     d.type_id = $('#filter-type').val();
-                    d.expiry = $('#filter-expiry-status').val();
+                    d.expiry = expiryFilter;
                     d.warehouse_id = $('#filter-warehouse').val();
                     d.shelf_id = $('#filter-shelf').val();
                     d.tier_id = $('#filter-tier').val();
@@ -435,7 +460,11 @@
             columns: [{
                     data: null,
                     orderable: false,
-                    render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1
+                    className: 'text-nowrap',
+                    render: (data, type, row, meta) =>
+                        `<input type="checkbox" class="doc-select mr-1 align-middle" value="${row.id}"
+                            ${selectedDocs.has(String(row.id)) ? 'checked' : ''} title="Chọn để in nhãn gáy">` +
+                        (meta.settings._iDisplayStart + meta.row + 1)
                 },
                 {
                     data: 'location_code',
@@ -486,6 +515,8 @@
                                 data-types="${e(row.type_names || 'N/A')}" data-status="${active ? 'Sử dụng' : 'Ngưng'}"
                                 title="Xem chi tiết"><i class="fas fa-eye"></i></button>
                             ${row.file_url ? `<a href="${e(row.file_url)}" target="_blank" class="btn btn-sm btn-primary" title="File"><i class="fas fa-file-download"></i></a>` : ''}
+                            <a href="${binderLabelUrl}?id=${encodeURIComponent(row.id)}" target="_blank"
+                                class="btn btn-sm btn-secondary" title="In nhãn gáy binder"><i class="fas fa-tags"></i></a>
                             <button type="button" class="btn btn-sm btn-warning btn-edit"
                                 data-id="${row.id}" data-code="${e(row.code)}" data-name="${e(row.name)}"
                                 data-filepath="${e(row.filepath)}"
@@ -522,7 +553,8 @@
                     </div>`,
                 input: 'textarea',
                 inputPlaceholder: 'Nhập lý do huỷ hồ sơ...',
-                inputValidator: value => !value || !value.trim() ? 'Vui lòng nhập lý do huỷ hồ sơ.' : undefined,
+                inputValidator: value => !value || !value.trim() ?
+                    'Vui lòng nhập lý do huỷ hồ sơ.' : undefined,
                 showCancelButton: true,
                 confirmButtonText: 'Huỷ hồ sơ',
                 cancelButtonText: 'Đóng',
@@ -534,15 +566,27 @@
                         url: disposeUrl,
                         method: 'POST',
                         dataType: 'json',
-                        data: { _token: csrfToken, id: btn.attr('data-id'), reason: reason.trim() }
+                        data: {
+                            _token: csrfToken,
+                            id: btn.attr('data-id'),
+                            reason: reason.trim()
+                        }
                     }).done(resolve).fail(xhr => {
-                        Swal.showValidationMessage((xhr.responseJSON && xhr.responseJSON.message) || 'Không thể huỷ hồ sơ, vui lòng thử lại.');
+                        Swal.showValidationMessage((xhr.responseJSON && xhr
+                                .responseJSON.message) ||
+                            'Không thể huỷ hồ sơ, vui lòng thử lại.');
                         resolve(false);
                     });
                 })
             }).then(result => {
                 if (!result.value) return;
-                Swal.fire({ title: 'Đã huỷ!', text: result.value.message, icon: 'success', timer: 1800, showConfirmButton: false });
+                Swal.fire({
+                    title: 'Đã huỷ!',
+                    text: result.value.message,
+                    icon: 'success',
+                    timer: 1800,
+                    showConfirmButton: false
+                });
                 table.draw(false);
                 if (disposalTable) disposalTable.draw(false);
             });
@@ -556,7 +600,9 @@
                 serverSide: true,
                 searchDelay: 400,
                 dom: "<'row'<'col-sm-12'l>>rt<'row'<'col-sm-5'i><'col-sm-7'p>>",
-                order: [[6, 'desc']],
+                order: [
+                    [6, 'desc']
+                ],
                 ajax: {
                     url: '{{ route('pages.documentStorage.document.disposals') }}',
                     error: function(xhr) {
@@ -566,18 +612,40 @@
                 columns: [{
                         data: null,
                         orderable: false,
-                        render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row + 1
+                        render: (data, type, row, meta) => meta.settings._iDisplayStart + meta.row +
+                            1
                     },
                     {
                         data: 'location_code',
-                        render: (data, type, row) => (escapeHtml(data || row.location_name) || '-')
-                            + (row.location_path ? `<br><small class="text-muted">${escapeHtml(row.location_path)}</small>` : '')
+                        render: (data, type, row) => (escapeHtml(data || row.location_name) ||
+                            '-') +
+                            (row.location_path ?
+                                `<br><small class="text-muted">${escapeHtml(row.location_path)}</small>` :
+                                '')
                     },
-                    { data: 'name', render: data => escapeHtml(data) || '-' },
-                    { data: 'type_names', orderable: false, render: data => data ? escapeHtml(data) : '-' },
-                    { data: 'reason', orderable: false, render: data => escapeHtml(data) },
-                    { data: 'disposed_by', render: data => escapeHtml(data) || '-' },
-                    { data: 'disposed_display', className: 'text-nowrap', render: data => data || '-' }
+                    {
+                        data: 'name',
+                        render: data => escapeHtml(data) || '-'
+                    },
+                    {
+                        data: 'type_names',
+                        orderable: false,
+                        render: data => data ? escapeHtml(data) : '-'
+                    },
+                    {
+                        data: 'reason',
+                        orderable: false,
+                        render: data => escapeHtml(data)
+                    },
+                    {
+                        data: 'disposed_by',
+                        render: data => escapeHtml(data) || '-'
+                    },
+                    {
+                        data: 'disposed_display',
+                        className: 'text-nowrap',
+                        render: data => data || '-'
+                    }
                 ]
             });
         }
@@ -611,21 +679,26 @@
             suppressReload = true;
             refreshHierarchyOptions();
             $('#filter-shelf, #filter-tier').trigger('change.select2');
-            loadDocumentLocations($('#filter-location'), $('#filter-tier').val(), null, 'Tất cả vị trí');
+            loadDocumentLocations($('#filter-location'), $('#filter-tier').val(), null,
+            'Tất cả vị trí');
             suppressReload = false;
             reloadTable();
         });
-        $('#filter-location, #filter-type, #filter-expiry-status').on('change', reloadTable);
+        $('#filter-location, #filter-type').on('change', reloadTable);
 
         // Quick filter from badge
         $('#btn-filter-expired').click(function() {
-            $('#filter-expiry-status').val('expired').trigger('change');
+            expiryFilter = (expiryFilter === 'expired') ? '' : 'expired';
+            $(this).toggleClass('badge-light text-danger', expiryFilter === 'expired');
+            reloadTable();
         });
 
         $('#btn-reset-filter').click(function() {
             suppressReload = true;
+            expiryFilter = '';
+            $('#btn-filter-expired').removeClass('badge-light text-danger');
             $('#quick-search-input').val('');
-            $('#filter-type, #filter-expiry-status, #filter-warehouse').val('').trigger('change');
+            $('#filter-type, #filter-warehouse').val('').trigger('change');
             refreshHierarchyOptions();
             $('#filter-shelf, #filter-tier').val('').trigger('change');
             loadDocumentLocations($('#filter-location'), null, null, 'Tất cả vị trí');
@@ -795,6 +868,58 @@
 
         table.on('draw', function() {
             generateAllQRs();
+            syncPageCheckbox();
+        });
+
+        /* ---------- Chọn nhiều tài liệu để in nhãn gáy binder ---------- */
+
+        function syncPageCheckbox() {
+            const $boxes = $('#data_table_document tbody .doc-select');
+            const checked = $boxes.filter(':checked').length;
+            $('#doc-select-page')
+                .prop('checked', $boxes.length > 0 && checked === $boxes.length)
+                .prop('indeterminate', checked > 0 && checked < $boxes.length);
+        }
+
+        function updateBinderSelection() {
+            const n = selectedDocs.size;
+            $('#binder-selected-count').text(n);
+            $('#btn-print-binder-selected').prop('disabled', n === 0);
+            $('#btn-clear-binder-selected').toggleClass('d-none', n === 0);
+            syncPageCheckbox();
+        }
+
+        $('#data_table_document').on('change', 'tbody .doc-select', function() {
+            if (this.checked) selectedDocs.add(this.value);
+            else selectedDocs.delete(this.value);
+            updateBinderSelection();
+        });
+
+        $('#doc-select-page').on('change', function() {
+            const on = this.checked;
+            $('#data_table_document tbody .doc-select').each(function() {
+                this.checked = on;
+                if (on) selectedDocs.add(this.value);
+                else selectedDocs.delete(this.value);
+            });
+            updateBinderSelection();
+        });
+
+        $('#btn-clear-binder-selected').on('click', function() {
+            selectedDocs.clear();
+            $('#data_table_document tbody .doc-select').prop('checked', false);
+            updateBinderSelection();
+        });
+
+        $('#btn-print-binder-selected').on('click', function() {
+            if (selectedDocs.size > BINDER_MAX_DOCS) {
+                Swal.fire('Chọn quá nhiều',
+                    `Mỗi lần in tối đa ${BINDER_MAX_DOCS} tài liệu (đang chọn ${selectedDocs.size}).`,
+                    'warning');
+                return;
+            }
+            window.open(binderLabelUrl + '?ids=' + encodeURIComponent(Array.from(selectedDocs).join(
+                ',')), '_blank');
         });
 
         $(document).on('click', '#data_table_document .qr-code-table', function() {
@@ -970,7 +1095,7 @@
                         // Thành công
                         $('#quick-search-input').val(decodedText).trigger('keyup');
                         $('#qrScannerModal').modal('hide');
-                        
+
                         Swal.fire({
                             icon: 'success',
                             title: 'Đã nhận diện!',

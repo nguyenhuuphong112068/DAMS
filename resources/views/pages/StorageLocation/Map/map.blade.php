@@ -34,14 +34,26 @@
                     <div class="wm-relabel-title">Hồ sơ đã đổi vị trí, nhãn đang in vị trí cũ</div>
                     <div id="wm-relabel-summary" class="wm-empty-note"></div>
                 </div>
-                <button type="button" id="wm-relabel-refresh" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-sync-alt mr-1"></i> Làm mới
-                </button>
+                <div class="wm-relabel-tools">
+                    <button type="button" id="wm-binder-print" class="btn btn-sm btn-secondary" disabled
+                        title="Tick chọn hồ sơ ở cột đầu, rồi bấm để in nhãn gáy binder cùng lúc">
+                        <i class="fas fa-tags mr-1"></i> In nhãn binder (<span id="wm-binder-count">0</span>)
+                    </button>
+                    <button type="button" id="wm-binder-clear" class="btn btn-sm btn-outline-secondary" title="Bỏ chọn tất cả" hidden>
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <button type="button" id="wm-relabel-refresh" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-sync-alt mr-1"></i> Làm mới
+                    </button>
+                </div>
             </div>
             <div class="wm-table-wrap">
                 <table class="table table-sm table-hover wm-relabel-table mb-0">
                     <thead>
                         <tr>
+                            <th class="wm-check">
+                                <input type="checkbox" id="wm-binder-all" title="Chọn / bỏ chọn tất cả để in nhãn binder">
+                            </th>
                             <th>#</th>
                             <th>Mã hồ sơ</th>
                             <th>Tên hồ sơ</th>
@@ -535,6 +547,9 @@
 .wm-relabel-table .wm-old { color: var(--wm-ink-muted); text-decoration: line-through; white-space: nowrap; }
 .wm-relabel-table .wm-new { color: #006300; font-weight: 600; white-space: nowrap; }
 .wm-relabel-table .wm-actions { white-space: nowrap; text-align: right; }
+.wm-relabel-table .wm-check { width: 1%; text-align: center; }
+.wm-relabel-table .wm-check input { cursor: pointer; vertical-align: middle; }
+.wm-relabel-tools { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 
 @media (max-width: 991px) {
     .wm-search { width: 100%; }
@@ -551,6 +566,7 @@
     "move": "{{ route('pages.storageLocation.map.move') }}",
     "relabel": "{{ route('pages.storageLocation.map.relabel') }}",
     "label": "{{ route('pages.documentStorage.document.label') }}",
+    "binderLabel": "{{ route('pages.documentStorage.document.binderLabel') }}",
     "csrf": "{{ csrf_token() }}"
 }
 </script>
@@ -1547,6 +1563,62 @@
         return match ? match[3] + '/' + match[2] + '/' + match[1] + ' ' + match[4] + ':' + match[5] : esc(value);
     }
 
+    /* Chọn nhiều hồ sơ để in nhãn gáy binder. Danh sách tự tải lại khi quay về cửa sổ,
+       nên giữ id đã chọn và bỏ những id không còn trong danh sách. */
+    var BINDER_MAX_DOCS = 100;
+    var binderSelected = new Set();
+    var binderAll = document.getElementById('wm-binder-all');
+    var binderPrint = document.getElementById('wm-binder-print');
+    var binderClear = document.getElementById('wm-binder-clear');
+
+    function binderLabelUrl(ids) {
+        return ROUTES.binderLabel + '?ids=' + encodeURIComponent(ids.join(','));
+    }
+
+    function updateBinderSelection() {
+        var boxes = relabelBody.querySelectorAll('.wm-binder-pick');
+        var checked = 0;
+        boxes.forEach(function (box) {
+            box.checked = binderSelected.has(box.value);
+            if (box.checked) checked++;
+        });
+        binderAll.checked = boxes.length > 0 && checked === boxes.length;
+        binderAll.indeterminate = checked > 0 && checked < boxes.length;
+        document.getElementById('wm-binder-count').textContent = binderSelected.size;
+        binderPrint.disabled = binderSelected.size === 0;
+        binderClear.hidden = binderSelected.size === 0;
+    }
+
+    relabelBody.addEventListener('change', function (event) {
+        var box = event.target.closest('.wm-binder-pick');
+        if (!box) return;
+        if (box.checked) binderSelected.add(box.value);
+        else binderSelected.delete(box.value);
+        updateBinderSelection();
+    });
+
+    binderAll.addEventListener('change', function () {
+        var on = binderAll.checked;
+        relabelBody.querySelectorAll('.wm-binder-pick').forEach(function (box) {
+            if (on) binderSelected.add(box.value);
+            else binderSelected.delete(box.value);
+        });
+        updateBinderSelection();
+    });
+
+    binderClear.addEventListener('click', function () {
+        binderSelected.clear();
+        updateBinderSelection();
+    });
+
+    binderPrint.addEventListener('click', function () {
+        if (binderSelected.size > BINDER_MAX_DOCS) {
+            window.alert('Mỗi lần in tối đa ' + BINDER_MAX_DOCS + ' hồ sơ (đang chọn ' + binderSelected.size + ').');
+            return;
+        }
+        window.open(binderLabelUrl(Array.from(binderSelected)), '_blank', 'noopener');
+    });
+
     function loadRelabel() {
         if (!paneRelabel.hidden) {
             relabelSummary.textContent = 'Đang tải...';
@@ -1560,14 +1632,22 @@
                 ? data.total + ' hồ sơ cần in lại nhãn' + (data.total > data.rows.length ? ' (hiển thị ' + data.rows.length + ' gần nhất)' : '') + '.'
                 : '';
 
+            var listed = new Set(data.rows.map(function (row) { return String(row.id); }));
+            binderSelected.forEach(function (id) {
+                if (!listed.has(id)) binderSelected.delete(id);
+            });
+
             if (!data.rows.length) {
-                relabelBody.innerHTML = '<tr><td colspan="8" class="text-center wm-empty-note py-4">'
+                relabelBody.innerHTML = '<tr><td colspan="9" class="text-center wm-empty-note py-4">'
                     + '<i class="fas fa-check-circle mr-1"></i>Không có nhãn nào cần in lại.</td></tr>';
+                updateBinderSelection();
                 return;
             }
 
             relabelBody.innerHTML = data.rows.map(function (row, index) {
                 return '<tr>'
+                    + '<td class="wm-check"><input type="checkbox" class="wm-binder-pick" value="' + esc(row.id) + '"'
+                    + ' title="Chọn để in nhãn binder"></td>'
                     + '<td>' + (index + 1) + '</td>'
                     + '<td><b>' + esc(row.code) + '</b></td>'
                     + '<td>' + esc(row.name) + '</td>'
@@ -1580,11 +1660,15 @@
                     + ' data-warehouse="' + esc(row.warehouse_id) + '" data-warehouse-name="' + esc(row.warehouse_name) + '"'
                     + ' data-shelf="' + esc(row.shelf_id) + '" data-shelf-name="' + esc(row.shelf_name) + '">'
                     + '<i class="fas fa-map-marker-alt mr-1"></i>Xem</button>'
+                    + '<a class="btn btn-sm btn-secondary mr-1" href="' + binderLabelUrl([row.id]) + '" target="_blank" rel="noopener"'
+                    + ' title="In nhãn gáy binder">'
+                    + '<i class="fas fa-tags mr-1"></i>Binder</a>'
                     + '<a class="btn btn-sm btn-primary" href="' + labelUrl(row.id) + '" target="_blank" rel="noopener">'
                     + '<i class="fas fa-print mr-1"></i>In nhãn</a>'
                     + '</td>'
                     + '</tr>';
             }).join('');
+            updateBinderSelection();
         }).catch(function () {
             if (!paneRelabel.hidden) relabelSummary.textContent = 'Không tải được danh sách nhãn cần in lại.';
         });

@@ -33,7 +33,7 @@ class DocumentController extends Controller
             $tiers = DB::table('tiers')->where('active', true)->get();
             // Vị trí (~60k dòng) không render sẵn; tải theo tầng qua route locations
 
-            session()->put(['title' => 'QUẢN LÝ TÀI LIỆU']);
+            session()->put(['title' => 'QUẢN LÝ LƯU TRỮ']);
 
             // Đếm tài liệu hết hạn (dữ liệu bảng được tải qua AJAX ở route data)
             $expiredCount = DB::table('documents')
@@ -294,12 +294,17 @@ class DocumentController extends Controller
             abort(404, 'Không tìm thấy tài liệu.');
         }
 
+        $qrValue = $row->location_code ?: $row->code;
+
         return view('pages.DocumentStorage.Document.label', [
             'document' => $row,
             'label' => config('document.label'),
             // ECC Q (25%): chịu được logo Stella đè giữa mã. border 1 module: vùng
             // trắng tối thiểu để QR gọn trong góc 1/4 nhãn.
-            'qr' => QrCode::render((string) $row->code, 'Q', 1),
+            // Mã hoá MÃ VỊ TRÍ (location_code) chứ không phải mã tài liệu, để quét QR
+            // ra đúng vị trí lưu trữ hiện tại của hồ sơ.
+            'qr' => QrCode::render((string) $qrValue, 'Q', 1),
+            'qrValue' => $qrValue,
             'maxCopies' => (int) config('document.label.max_copies', 100),
         ]);
     }
@@ -350,6 +355,119 @@ class DocumentController extends Controller
             'copies' => $copies,
             'printedAt' => $printedAt->format('d/m/Y H:i:s'),
         ]);
+    }
+
+    /** Số tài liệu tối đa cho một lần in nhãn gáy binder. */
+    private const BINDER_LABEL_MAX_DOCS = 100;
+
+    /**
+     * Trang in NHÃN GÁY BINDER (A4, máy in thường) cho 1 hoặc nhiều tài liệu:
+     * ?ids=1,2,3 (chọn nhiều ở bảng) hoặc ?id=1. Khổ 5cm/7cm chọn qua ?size=.
+     * Nội dung lấy thẳng từ tài liệu, giữ thứ tự chọn.
+     */
+    public function binderLabel(Request $request)
+    {
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return redirect()->route('login')->with('error', 'Phiên làm việc hết hạn, vui lòng đăng nhập lại.');
+        }
+
+        $ids = $this->binderLabelIds($request);
+
+        $rows = DB::table('documents')
+            ->leftJoin('locations', 'documents.location_id', '=', 'locations.id')
+            ->leftJoin('deparments', 'documents.department_id', '=', 'deparments.id')
+            ->select(
+                'documents.id', 'documents.code', 'documents.name',
+                'locations.code as location_code', 'locations.name as location_name',
+                'deparments.name as department_name'
+            )
+            ->whereIn('documents.id', $ids)
+            ->where('documents.department_id', session('user')['selected_department_id'])
+            ->get()
+            ->keyBy('id');
+
+        $docs = collect($ids)->map(fn($id) => $rows->get($id))->filter()->values();
+        if ($docs->isEmpty()) {
+            abort(404, 'Không tìm thấy tài liệu.');
+        }
+
+        $sizes = config('binder.label.sizes');
+        $width = (int) $request->input('size', 5);
+        if (!isset($sizes[$width])) {
+            $width = 5;
+        }
+
+        $labels = $docs->map(function ($row) {
+            $qrValue = $row->location_code ?: $row->code;
+            return ['record' => $row, 'qr' => QrCode::render((string) $qrValue, 'Q', 1), 'qrValue' => $qrValue];
+        })->all();
+
+        $idList = $docs->pluck('id')->implode(',');
+
+        return view('pages.DocumentStorage.Document.binderLabel', [
+            'labels' => $labels,
+            'recordIds' => $idList,
+            'size' => $sizes[$width],
+            'maxCopies' => (int) config('binder.label.max_copies', 100),
+            'logUrl' => route('pages.documentStorage.document.binderLabelPrinted'),
+            'backUrl' => route('pages.documentStorage.document.list'),
+            'currentSize' => $width,
+            'sizeUrls' => collect(array_keys($sizes))->mapWithKeys(fn($w) => [
+                $w => route('pages.documentStorage.document.binderLabel', ['ids' => $idList, 'size' => $w]),
+            ])->all(),
+        ]);
+    }
+
+    // Ghi audit log in nhãn gáy binder, mỗi tài liệu 1 dòng. Không đụng labeled_location_id
+    // (chỉ dành cho nhãn QR).
+    public function binderLabelPrinted(Request $request)
+    {
+        if (!session()->has('user') || !isset(session('user')['selected_department_id'])) {
+            return response()->json(['ok' => false, 'message' => 'Phiên làm việc hết hạn'], 401);
+        }
+
+        $maxCopies = (int) config('binder.label.max_copies', 100);
+        $copies = max(1, min($maxCopies, (int) $request->input('copies', 1)));
+
+        $rows = DB::table('documents')
+            ->select('id', 'code', 'name')
+            ->whereIn('id', $this->binderLabelIds($request))
+            ->where('department_id', session('user')['selected_department_id'])
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return response()->json(['ok' => false, 'message' => 'Không tìm thấy tài liệu cần in nhãn.'], 404);
+        }
+
+        $printedAt = now();
+
+        foreach ($rows as $row) {
+            AuditTrialController::log(
+                'In nhãn',
+                'documents',
+                $row->id,
+                'NA',
+                'In nhãn gáy binder: ' . ($row->name ?: '(chưa có tên)')
+                    . ' | Mã tài liệu: ' . $row->code
+                    . ' | Số lượng nhãn: ' . $copies
+                    . ' | In cùng lúc: ' . $rows->count() . ' tài liệu'
+                    . ' | Thời điểm in: ' . $printedAt->format('d/m/Y H:i:s')
+            );
+        }
+
+        return response()->json(['ok' => true, 'copies' => $copies, 'documents' => $rows->count()]);
+    }
+
+    /** @return array<int,int> id tài liệu từ ?ids=1,2,3 hoặc ?id=1, bỏ trùng, giữ thứ tự */
+    private function binderLabelIds(Request $request): array
+    {
+        return collect(explode(',', (string) $request->input('ids', $request->input('id', ''))))
+            ->map(fn($v) => (int) trim($v))
+            ->filter(fn($v) => $v > 0)
+            ->unique()
+            ->take(self::BINDER_LABEL_MAX_DOCS)
+            ->values()
+            ->all();
     }
 
     /**

@@ -102,6 +102,8 @@ Route::prefix('/documentStorage')
             Route::get('locationSearch', 'locationSearch')->name('locationSearch');
             Route::get('label', 'label')->name('label');                    // Trang in nhãn QR
             Route::post('labelPrinted', 'labelPrinted')->name('labelPrinted'); // Ghi audit log mỗi lần in
+            Route::get('binderLabel', 'binderLabel')->name('binderLabel');   // In nhãn gáy binder (A4)
+            Route::post('binderLabelPrinted', 'binderLabelPrinted')->name('binderLabelPrinted');
             Route::post('store', 'store')->name('store');
             Route::post('update', 'update')->name('update');
             Route::post('dispose', 'dispose')->name('dispose');             // Huỷ hồ sơ, trả vị trí trống
