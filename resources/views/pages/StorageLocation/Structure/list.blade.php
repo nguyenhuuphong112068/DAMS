@@ -9,10 +9,5 @@
 @endsection
 
 @section('mainContent')
-    @include('pages.StorageLocation.Shelf.dataTable')
-@endsection
-
-@section('model')
-    @include('pages.StorageLocation.Shelf.create')
-    @include('pages.StorageLocation.Shelf.update')
+    @include('pages.StorageLocation.Structure.editor')
 @endsection

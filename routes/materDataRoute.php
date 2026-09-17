@@ -2,11 +2,9 @@
 use App\Http\Controllers\Pages\MaterData\DepartmentController;
 use App\Http\Controllers\Pages\MaterData\StatusController;
 use App\Http\Controllers\Pages\MaterData\DocumentTypeController;
-use App\Http\Controllers\Pages\StorageLocation\WarehouseController;
 use App\Http\Controllers\Pages\StorageLocation\RoomController;
-use App\Http\Controllers\Pages\StorageLocation\ShelfController;
-use App\Http\Controllers\Pages\StorageLocation\TierController;
-use App\Http\Controllers\Pages\StorageLocation\LocationController;
+use App\Http\Controllers\Pages\StorageLocation\StorageAssignmentController;
+use App\Http\Controllers\Pages\StorageLocation\StructureController;
 use App\Http\Controllers\Pages\StorageLocation\WarehouseMapController;
 use App\Http\Controllers\Pages\DocumentStorage\DocumentController;
 use App\Http\Controllers\Pages\DocumentStorage\DocumentRoutingController;
@@ -48,36 +46,30 @@ Route::prefix('/storageLocation')
     ->name('pages.storageLocation.')
     ->middleware(CheckLogin::class)
     ->group(function () {
-        Route::prefix('/warehouse')->name('warehouse.')->controller(WarehouseController::class)->group(function () {
-            Route::get('', 'index')->name('list');
-            Route::post('store', 'store')->name('store');
-            Route::post('update', 'update')->name('update');
-            Route::post('deActive', 'deActive')->name('deActive');
-        });
         Route::prefix('/room')->name('room.')->controller(RoomController::class)->group(function () {
             Route::get('', 'index')->name('list');
             Route::post('store', 'store')->name('store');
             Route::post('update', 'update')->name('update');
             Route::post('deActive', 'deActive')->name('deActive');
         });
-        Route::prefix('/shelf')->name('shelf.')->controller(ShelfController::class)->group(function () {
+        Route::prefix('/structure')->name('structure.')->controller(StructureController::class)->group(function () {
             Route::get('', 'index')->name('list');
-            Route::post('store', 'store')->name('store');
-            Route::post('update', 'update')->name('update');
-            Route::post('deActive', 'deActive')->name('deActive');
+            Route::get('warehouses', 'warehouses')->name('warehouses');
+            Route::post('warehouse', 'saveWarehouse')->name('saveWarehouse');
+            Route::get('shelves', 'shelves')->name('shelves');
+            Route::get('detail', 'detail')->name('detail');
+            Route::post('apply', 'apply')->name('apply');
+            Route::get('previewCodes', 'previewCodes')->name('previewCodes');
+            Route::post('applyMany', 'applyMany')->name('applyMany');
         });
-        Route::prefix('/tier')->name('tier.')->controller(TierController::class)->group(function () {
+        // Giao Kho/Kệ/Tầng/Vị Trí cho người có vai trò "Quản lý kệ"
+        Route::prefix('/assignment')->name('assignment.')->controller(StorageAssignmentController::class)->group(function () {
             Route::get('', 'index')->name('list');
-            Route::post('store', 'store')->name('store');
-            Route::post('update', 'update')->name('update');
-            Route::post('deActive', 'deActive')->name('deActive');
-        });
-        Route::prefix('/location')->name('location.')->controller(LocationController::class)->group(function () {
-            Route::get('', 'index')->name('list');
-            Route::get('datatable', 'datatable')->name('datatable');
-            Route::post('store', 'store')->name('store');
-            Route::post('update', 'update')->name('update');
-            Route::post('deActive', 'deActive')->name('deActive');
+            Route::get('summary', 'summary')->name('summary');
+            Route::get('warehouses', 'warehouses')->name('warehouses');
+            Route::get('shelves', 'shelves')->name('shelves');
+            Route::get('grid', 'grid')->name('grid');
+            Route::post('toggle', 'toggle')->name('toggle');
         });
         Route::prefix('/map')->name('map.')->controller(WarehouseMapController::class)->group(function () {
             Route::get('', 'index')->name('list');

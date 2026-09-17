@@ -171,7 +171,7 @@
 
                 @if ($canViewWarehouse)
                     <div class="col-12 col-sm-6 col-md-4 col-xl-4 mb-3">
-                        <a href="{{ route('pages.storageLocation.warehouse.list') }}" class="home-card">
+                        <a href="{{ route('pages.storageLocation.structure.list') }}" class="home-card">
                             <div class="home-card-header">
                                 <div class="home-card-icon" style="background: rgba(217, 119, 6, 0.1); color: #d97706;">
                                     <i class="fas fa-map-marker-alt"></i>

@@ -9,10 +9,5 @@
 @endsection
 
 @section('mainContent')
-    @include('pages.StorageLocation.Tier.dataTable')
-@endsection
-
-@section('model')
-    @include('pages.StorageLocation.Tier.create')
-    @include('pages.StorageLocation.Tier.update')
+    @include('pages.StorageLocation.Assignment.board')
 @endsection

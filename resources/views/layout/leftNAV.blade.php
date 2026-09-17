@@ -82,21 +82,17 @@
 
                     // 2. Dữ Liệu Gốc
                     $canViewDepartment = user_has_permission($currentUserId, 'department.view', 'boolean');
-                    $canViewStatus     = user_has_permission($currentUserId, 'status.view', 'boolean');
-                    $canViewDocType    = user_has_permission($currentUserId, 'documentType.view', 'boolean');
-                    $hasMasterData     = $canViewDepartment || $canViewStatus || $canViewDocType;
+                    $canViewStatus = user_has_permission($currentUserId, 'status.view', 'boolean');
+                    $canViewDocType = user_has_permission($currentUserId, 'documentType.view', 'boolean');
+                    $hasMasterData = $canViewDepartment || $canViewStatus || $canViewDocType;
 
-                    // 3. Vị Trí Lưu Trữ
-                    $canViewWarehouse  = user_has_permission($currentUserId, 'warehouse.view', 'boolean');
-                    $canViewShelf      = user_has_permission($currentUserId, 'shelf.view', 'boolean');
-                    $canViewTier       = user_has_permission($currentUserId, 'tier.view', 'boolean');
-                    $canViewLocation   = user_has_permission($currentUserId, 'location.view', 'boolean');
+                    // 3. Vị Trí Lưu Trữ — một màn hình khai báo cả 4 cấp nên gom quyền của cả 4
+                    $canViewWarehouse = user_has_permission($currentUserId, 'warehouse.view', 'boolean');
+                    $canViewShelf = user_has_permission($currentUserId, 'shelf.view', 'boolean');
+                    $canViewTier = user_has_permission($currentUserId, 'tier.view', 'boolean');
+                    $canViewLocation = user_has_permission($currentUserId, 'location.view', 'boolean');
                     $hasStorageLocation = $canViewWarehouse || $canViewShelf || $canViewTier || $canViewLocation;
-
-                    // Sơ Đồ Kho cũng nằm dưới /storageLocation nhưng là mục riêng
-                    $inStorageTree =
-                        request()->routeIs('pages.storageLocation.*') &&
-                        !request()->routeIs('pages.storageLocation.map.*');
+                    $canAssignShelfManager = user_has_permission($currentUserId, \App\StorageLocation\ShelfManager::PERMISSION, 'boolean');
 
                     // 4. Sơ Đồ Kho
                     $canViewMap = user_has_permission($currentUserId, 'map.view', 'boolean');
@@ -108,12 +104,12 @@
                     $canViewRouting = user_has_permission($currentUserId, 'routing.view', 'boolean');
 
                     // 7. Quản Trị
-                    $canViewAdmin      = user_has_permission($currentUserId, 'admin.view', 'boolean');
-                    $canViewUser       = user_has_permission($currentUserId, 'user.view', 'boolean');
-                    $canViewRole       = user_has_permission($currentUserId, 'role.view', 'boolean');
+                    $canViewAdmin = user_has_permission($currentUserId, 'admin.view', 'boolean');
+                    $canViewUser = user_has_permission($currentUserId, 'user.view', 'boolean');
+                    $canViewRole = user_has_permission($currentUserId, 'role.view', 'boolean');
                     $canViewPermission = user_has_permission($currentUserId, 'permission.view', 'boolean');
                     $canViewAuditTrail = user_has_permission($currentUserId, 'auditTrail.view', 'boolean');
-                    $hasUserPolicy     = $canViewUser || $canViewRole || $canViewPermission;
+                    $hasUserPolicy = $canViewUser || $canViewRole || $canViewPermission;
                 @endphp
 
                 <!-- Droplist Menu Chuyển Bộ Phận  -->
@@ -147,7 +143,8 @@
 
                 <!-- Droplist Menu Dữ Liệu Gốc  -->
                 @if ($hasMasterData)
-                    <li class="nav-item has-treeview {{ str_contains(url()->current(), 'materData') ? 'menu-open' : '' }}">
+                    <li
+                        class="nav-item has-treeview {{ str_contains(url()->current(), 'materData') ? 'menu-open' : '' }}">
                         <a href="#"
                             class="nav-link {{ str_contains(url()->current(), 'materData') ? 'active' : '' }}">
                             <i class="fas fa-database"></i>
@@ -184,46 +181,25 @@
 
 
 
-                <!-- Droplist Menu Vị Trí Lưu Trữ -->
+                <!-- Vị Trí Lưu Trữ: một màn hình lưới khai báo cả Kho, Kệ, Tầng và Vị Trí -->
                 @if ($hasStorageLocation)
-                    <li class="nav-item has-treeview {{ $inStorageTree ? 'menu-open' : '' }}">
-                        <a href="#" class="nav-link {{ $inStorageTree ? 'active' : '' }}">
+                    <li class="nav-item">
+                        <a href="{{ route('pages.storageLocation.structure.list') }}"
+                            class="nav-link {{ request()->routeIs('pages.storageLocation.structure.*') ? 'active' : '' }}">
                             <i class="fas fa-map-marker-alt"></i>
-                            <p>
-                                Vị Trí Lưu Trữ
-                                <i class="right fas fa-angle-left"></i>
-                            </p>
+                            <p>Vị Trí Lưu Trữ</p>
                         </a>
-                        <ul class="nav nav-treeview">
-                            @if ($canViewWarehouse)
-                                <li class="nav-item"><a href="{{ route('pages.storageLocation.warehouse.list') }}"
-                                        class="nav-link {{ request()->routeIs('pages.storageLocation.warehouse.*') ? 'active' : '' }}"><i
-                                            class="far fa-circle nav-icon text-primary"></i>
-                                        <p>Kho</p>
-                                    </a></li>
-                            @endif
-                            @if ($canViewShelf)
-                                <li class="nav-item"><a href="{{ route('pages.storageLocation.shelf.list') }}"
-                                        class="nav-link {{ request()->routeIs('pages.storageLocation.shelf.*') ? 'active' : '' }}"><i
-                                            class="far fa-circle nav-icon text-info"></i>
-                                        <p>Kệ</p>
-                                    </a></li>
-                            @endif
-                            @if ($canViewTier)
-                                <li class="nav-item"><a href="{{ route('pages.storageLocation.tier.list') }}"
-                                        class="nav-link {{ request()->routeIs('pages.storageLocation.tier.*') ? 'active' : '' }}"><i
-                                            class="far fa-circle nav-icon text-warning"></i>
-                                        <p>Tầng</p>
-                                    </a></li>
-                            @endif
-                            @if ($canViewLocation)
-                                <li class="nav-item"><a href="{{ route('pages.storageLocation.location.list') }}"
-                                        class="nav-link {{ request()->routeIs('pages.storageLocation.location.*') ? 'active' : '' }}"><i
-                                            class="far fa-circle nav-icon text-danger"></i>
-                                        <p>Vị Trí</p>
-                                    </a></li>
-                            @endif
-                        </ul>
+                    </li>
+                @endif
+
+                <!-- Phân công Kho/Kệ/Tầng/Vị Trí cho người quản lý kệ -->
+                @if ($canAssignShelfManager)
+                    <li class="nav-item">
+                        <a href="{{ route('pages.storageLocation.assignment.list') }}"
+                            class="nav-link {{ request()->routeIs('pages.storageLocation.assignment.*') ? 'active' : '' }}">
+                            <i class="fas fa-user-tag"></i>
+                            <p>Phân Công Quản Lý Kệ</p>
+                        </a>
                     </li>
                 @endif
 
@@ -268,27 +244,29 @@
                 @if ($canViewAdmin)
                     <li class="nav-header">QUẢN TRỊ</li>
                     @if ($hasUserPolicy)
-                        <li class="nav-item has-treeview {{ str_contains(url()->current(), 'User/') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ str_contains(url()->current(), 'User/') ? 'active' : '' }}">
+                        <li
+                            class="nav-item has-treeview {{ str_contains(url()->current(), 'User/') ? 'menu-open' : '' }}">
+                            <a href="#"
+                                class="nav-link {{ str_contains(url()->current(), 'User/') ? 'active' : '' }}">
                                 <i class="fas fa-user-shield"></i>
                                 <p>Phân Quyền <i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
                                 @if ($canViewUser)
-                                    <li class="nav-item"><a href="{{ route('pages.User.user.list') }}" class="nav-link"><i
-                                                class="far fa-circle nav-icon"></i>
+                                    <li class="nav-item"><a href="{{ route('pages.User.user.list') }}"
+                                            class="nav-link"><i class="far fa-circle nav-icon"></i>
                                             <p>User</p>
                                         </a></li>
                                 @endif
                                 @if ($canViewRole)
-                                    <li class="nav-item"><a href="{{ route('pages.User.role.list') }}" class="nav-link"><i
-                                                class="far fa-circle nav-icon"></i>
+                                    <li class="nav-item"><a href="{{ route('pages.User.role.list') }}"
+                                            class="nav-link"><i class="far fa-circle nav-icon"></i>
                                             <p>Nhóm Quyền</p>
                                         </a></li>
                                 @endif
                                 @if ($canViewPermission)
-                                    <li class="nav-item"><a href="{{ route('pages.User.permission.list') }}" class="nav-link"><i
-                                                class="far fa-circle nav-icon"></i>
+                                    <li class="nav-item"><a href="{{ route('pages.User.permission.list') }}"
+                                            class="nav-link"><i class="far fa-circle nav-icon"></i>
                                             <p>Quyền</p>
                                         </a></li>
                                 @endif
