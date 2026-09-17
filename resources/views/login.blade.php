@@ -268,10 +268,10 @@
                 <i class="bi bi-archive-fill"></i>
             </div>
             <h1>{{ config('app.name', 'Quản Lý Kho Hồ Sơ') }}</h1>
-            <p>Hệ thống lưu trữ, tra cứu và theo dõi cấp lại trang hồ sơ BMR/BPR tập trung, an toàn và minh bạch.</p>
+            <p>Hệ thống lưu trữ, định vị và quản lý hồ sơ tài liệu tập trung, an toàn và minh bạch.</p>
             <ul class="brand-features">
                 <li><i class="bi bi-check-circle-fill"></i> Quản lý hồ sơ tập trung</li>
-                <li><i class="bi bi-check-circle-fill"></i> Theo dõi cấp lại hồ sơ theo thời gian thực</li>
+                <li><i class="bi bi-check-circle-fill"></i> Định vị và sơ đồ kho trực quan</li>
                 <li><i class="bi bi-check-circle-fill"></i> Bảo mật và phân quyền truy cập</li>
             </ul>
             <div class="brand-footer">

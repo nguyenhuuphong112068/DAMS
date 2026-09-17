@@ -16,13 +16,13 @@ class RoleController extends Controller
         $rolePermissionMap = DB::table('role_permission')
             ->get()
             ->groupBy('role_id')
-            ->map(fn ($items) => $items->pluck('permission_id')->toArray());
+            ->map(fn ($items) => $items->pluck('permission_id')->all());
 
         $datas = $roles->map(function ($role) use ($rolePermissionMap) {
             return [
                 'id' => $role->id,
                 'name' => $role->name,
-                'permission_ids' => $rolePermissionMap->get($role->id, collect())->toArray(),
+                'permission_ids' => $rolePermissionMap->get($role->id, []),
             ];
         });
 

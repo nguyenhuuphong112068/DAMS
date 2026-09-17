@@ -5,30 +5,33 @@ use Illuminate\Support\Facades\DB;
 if (! function_exists('user_has_permission')) {
     function user_has_permission($userId, $permissionName, $typeReturn)
     {
-        // Admin luôn có toàn quyền, không phụ thuộc dữ liệu gán trong role_permission.
-        if (user_has_any_role($userId, ['Admin'])) {
+        if (empty($userId)) {
+            $result = false;
+        } elseif (user_has_any_role($userId, ['Admin'])) {
+            // Admin luôn có toàn quyền, không phụ thuộc dữ liệu gán trong role_permission.
             $result = true;
         } else {
-            $result = DB::table('permissions')
-                ->join('role_permission', 'permissions.id', '=', 'role_permission.permission_id')
-                ->join('user_role', 'role_permission.role_id', '=', 'user_role.role_id')
-                ->where('user_role.user_id', $userId)
-                ->where('permissions.name', $permissionName)
-                ->exists();
+            static $userPermissions = [];
+            if (! isset($userPermissions[$userId])) {
+                $userPermissions[$userId] = DB::table('permissions')
+                    ->join('role_permission', 'permissions.id', '=', 'role_permission.permission_id')
+                    ->join('user_role', 'role_permission.role_id', '=', 'user_role.role_id')
+                    ->where('user_role.user_id', $userId)
+                    ->pluck('permissions.name')
+                    ->flip()
+                    ->all();
+            }
+
+            $result = isset($userPermissions[$userId][$permissionName]);
         }
 
-        //dd ($result, $userId, $permissionName);
-
-        //dd ($userId);
         if ($typeReturn == "boolean") {
             return $result;
         } elseif ($typeReturn == "disabled") {
-            if ($result) {
-                return "";
-            } else {
-                return "disabled";
-            }
+            return $result ? "" : "disabled";
         }
+
+        return $result;
     }
 }
 
@@ -41,20 +44,27 @@ if (! function_exists('user_has_any_role')) {
      */
     function user_has_any_role($userId, array $roleNames): bool
     {
-        $primaryGroup = DB::table('user_management')->where('id', $userId)->value('userGroup');
+        if (empty($userId)) {
+            return false;
+        }
 
-        $assignedRoles = DB::table('user_role')
-            ->join('roles', 'roles.id', '=', 'user_role.role_id')
-            ->where('user_role.user_id', $userId)
-            ->pluck('roles.name')
-            ->all();
+        static $userRoles = [];
+        if (! isset($userRoles[$userId])) {
+            $primaryGroup = DB::table('user_management')->where('id', $userId)->value('userGroup');
 
-        $userRoleNames = array_filter(array_merge([$primaryGroup], $assignedRoles));
+            $assignedRoles = DB::table('user_role')
+                ->join('roles', 'roles.id', '=', 'user_role.role_id')
+                ->where('user_role.user_id', $userId)
+                ->pluck('roles.name')
+                ->all();
 
-        if (in_array('Admin', $userRoleNames, true)) {
+            $userRoles[$userId] = array_filter(array_merge([$primaryGroup], $assignedRoles));
+        }
+
+        if (in_array('Admin', $userRoles[$userId], true)) {
             return true;
         }
 
-        return count(array_intersect($roleNames, $userRoleNames)) > 0;
+        return count(array_intersect($roleNames, $userRoles[$userId])) > 0;
     }
 }
