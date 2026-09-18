@@ -273,9 +273,10 @@ class ShelfAssignment
         });
     }
 
-    // Số vị trí đang dùng mà mỗi người phụ trách, gom theo một cột của bảng locations.
+    // Các cặp (người phụ trách, vị trí), dạng truy vấn con để gom hoặc lọc tiếp.
     // Tách làm bốn nhánh theo cấp để mỗi nhánh đi đúng index, rồi UNION để bỏ trùng.
-    public static function coverage(int $departmentId, string $column, $value, string $groupBy): Collection
+    // $constrain nhận truy vấn của từng nhánh với bí danh a (storage_assignments) và l (locations).
+    public static function coveredLocations(callable $constrain, array $columns = [])
     {
         $union = null;
 
@@ -285,13 +286,23 @@ class ShelfAssignment
             $query = DB::table('storage_assignments as a')
                 ->join('locations as l', 'l.' . $key, '=', 'a.scope_id')
                 ->where('a.scope_type', $level)
-                ->where('a.department_id', $departmentId)
-                ->where('l.status_id', 1)
-                ->where('l.' . $column, $value)
-                ->select('a.user_id', 'l.id as location_id', 'l.' . $groupBy . ' as group_id');
+                ->select(array_merge(['a.user_id', 'l.id as location_id'], $columns));
+            $constrain($query);
 
             $union = $union ? $union->union($query) : $query;
         }
+
+        return $union;
+    }
+
+    // Số vị trí đang dùng mà mỗi người phụ trách, gom theo một cột của bảng locations.
+    public static function coverage(int $departmentId, string $column, $value, string $groupBy): Collection
+    {
+        $union = self::coveredLocations(function ($query) use ($departmentId, $column, $value) {
+            $query->where('a.department_id', $departmentId)
+                ->where('l.status_id', 1)
+                ->where('l.' . $column, $value);
+        }, ['l.' . $groupBy . ' as group_id']);
 
         return DB::query()
             ->fromSub($union, 'c')

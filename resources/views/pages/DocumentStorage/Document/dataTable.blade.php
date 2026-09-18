@@ -468,7 +468,9 @@
                 },
                 {
                     data: 'location_code',
-                    render: (data, type, row) => escapeHtml(data || row.location_name)
+                    render: (data, type, row) => escapeHtml(data || row.location_name) + (row.managers ?
+                        `<div class="small text-nowrap" style="color:#92400e" title="Người quản lý kệ phụ trách">
+                            <i class="fas fa-user-tag mr-1"></i>${escapeHtml(row.managers)}</div>` : '')
                 },
                 {
                     data: 'code',
@@ -505,6 +507,10 @@
                     render: (data, type, row) => {
                         const e = escapeHtml;
                         const active = row.status_id == 1;
+                        // Kệ đã giao cho người quản lý kệ khác: chỉ xem, không sửa/huỷ được.
+                        const lockTitle = row.can_manage ? '' : ` (chỉ ${row.managers} hoặc cấp quản lý kho được thao tác)`;
+                        const canEdit = canUpdateDocument && row.can_manage;
+                        const canDispose = canDisposeDocument && row.can_manage;
                         return `
                             <button type="button" class="btn btn-sm btn-info btn-view-details"
                                 data-id="${row.id}" data-code="${e(row.code)}" data-name="${e(row.name)}" data-owner="${e(row.owner)}"
@@ -525,10 +531,10 @@
                                 data-warehouse="${e(row.warehouse_id)}" data-shelf="${e(row.shelf_id)}"
                                 data-tier="${e(row.tier_id)}" data-expired="${e(row.expired_date)}"
                                 data-types="${e(JSON.stringify(row.type_ids))}"
-                                data-toggle="modal" data-target="#updateModal" title="Sửa" ${canUpdateDocument ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
+                                data-toggle="modal" data-target="#updateModal" title="Sửa${e(lockTitle)}" ${canEdit ? '' : 'disabled'}><i class="fas fa-edit"></i></button>
                             <button type="button" class="btn btn-sm btn-danger btn-dispose"
                                 data-id="${row.id}" data-code="${e(row.code)}" data-name="${e(row.name)}"
-                                data-location="${e(row.location_name)}" title="Huỷ hồ sơ" ${canDisposeDocument ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>`;
+                                data-location="${e(row.location_name)}" title="Huỷ hồ sơ${e(lockTitle)}" ${canDispose ? '' : 'disabled'}><i class="fas fa-trash-alt"></i></button>`;
                     }
                 }
             ],

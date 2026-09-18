@@ -461,6 +461,21 @@
 .wm-float.is-min #wm-float-min i { transform: none; }
 .wm-panel h6 { font-weight: 700; margin-bottom: .1rem; }
 .wm-panel-path { font-size: .75rem; color: var(--wm-ink-2); margin-bottom: .6rem; }
+
+/* Người quản lý kệ được phân công */
+.wm-managers { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; font-size: .74rem; color: #7c4a03; }
+.wm-managers i { color: #b45309; }
+.wm-manager-chip { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 999px; padding: 0 .45rem; white-space: nowrap; }
+.wm-tile .wm-managers { margin-top: .55rem; }
+.wm-panel-managers { margin: -.3rem 0 .6rem; }
+.wm-lock-note { font-size: .72rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 5px; padding: .3rem .5rem; margin-bottom: .5rem; }
+/* Góc xám đậm dưới trái: kệ do người khác phụ trách, không kéo thả được. */
+.wm-cell--locked { cursor: not-allowed; }
+.wm-cell--locked::before {
+    content: ""; position: absolute; left: 0; bottom: 0; width: 0; height: 0;
+    border-style: solid; border-width: 9px 0 0 9px; border-color: transparent transparent transparent #475569;
+}
+.wm-is-dragging .wm-cell--locked { opacity: .45; }
 .wm-doc { border-top: 1px solid var(--wm-gridline); padding-top: .55rem; margin-top: .55rem; font-size: .8rem; }
 .wm-doc dt { font-weight: 600; color: var(--wm-ink-2); font-size: .72rem; margin-top: .35rem; }
 .wm-doc dd { margin: 0; }
@@ -606,6 +621,16 @@
         pendingCell: null
     };
 
+    // Tên người quản lý kệ theo id, lấy từ lần tải lưới gần nhất.
+    var gridManagers = {};
+
+    function managersChips(list) {
+        if (!list || !list.length) return '';
+        return '<div class="wm-managers"><i class="fas fa-user-tag"></i>' + list.map(function (item) {
+            return '<span class="wm-manager-chip">' + esc(item) + '</span>';
+        }).join('') + '</div>';
+    }
+
     var BUCKETS = [
         { cls: 'wm-b0', label: 'Trống' },
         { cls: 'wm-b1', label: '1-25%' },
@@ -669,7 +694,7 @@
 
     /* ---------- Chú giải ---------- */
 
-    function renderLegend(mode) {
+    function renderLegend(mode, hasLocked) {
         var items;
 
         if (mode === 'grid') {
@@ -680,6 +705,9 @@
                 { style: 'background:transparent;border-style:dashed', label: 'Chưa tạo vị trí' },
                 { style: 'background:linear-gradient(225deg,#eb6834 0 5px,var(--wm-f4) 5px);border-color:var(--wm-f5)', label: 'Cần in lại nhãn' }
             ];
+            if (hasLocked) {
+                items.push({ style: 'background:linear-gradient(45deg,#475569 0 5px,#fff 5px)', label: 'Kệ người khác phụ trách' });
+            }
         } else {
             items = BUCKETS.map(function (bucket) {
                 return { cls: bucket.cls, label: bucket.label };
@@ -756,6 +784,9 @@
                 +   '</div>'
                 +   '<span class="wm-tile-arrow">Xem sơ đồ <i class="fas fa-chevron-right ml-1"></i></span>'
                 + '</div>'
+                + managersChips((node.managers || []).map(function (m) {
+                    return m.name + ' · ' + Number(m.covered).toLocaleString() + ' ô';
+                }))
                 + '</button>';
         }).join('') + '</div>';
 
@@ -795,9 +826,16 @@
         var tip = '<b>' + esc(cell.code) + '</b><br>' + status;
         if (cell.doc) tip += '<br>Tài liệu: ' + esc(cell.doc);
         if (cell.stale) tip += '<br>⚠ Cần in lại nhãn';
+        if (cell.own) {
+            tip += '<br>Phụ trách: ' + esc(cell.own.map(function (id) { return gridManagers[id] || ('#' + id); }).join(', '));
+        }
+        if (cell.lock) {
+            cls += ' wm-cell--locked';
+            tip += '<br>🔒 Chỉ người phụ trách mới thao tác được';
+        }
 
         // Ô có hồ sơ kéo được kể cả khi ô đang ngưng sử dụng, để còn dọn hồ sơ ra.
-        var dragAttrs = cell.busy && cell.did
+        var dragAttrs = cell.busy && cell.did && !cell.lock
             ? ' data-doc="' + cell.did + '" data-from="' + cell.id + '"'
               + ' data-from-code="' + esc(cell.code) + '" data-doc-code="' + esc(cell.doc || '') + '"'
             : '';
@@ -813,6 +851,7 @@
         var used = 0;
         var total = 0;
         var maxPosition = 0;
+        var ownCounts = {};
 
         tiers.forEach(function (tier) {
             var cells = cellsByTier.get(Number(tier.id)) || [];
@@ -821,7 +860,13 @@
             cells.forEach(function (cell) {
                 total++;
                 if (cell.busy) used++;
+                (cell.own || []).forEach(function (id) { ownCounts[id] = (ownCounts[id] || 0) + 1; });
             });
+        });
+
+        var owners = Object.keys(ownCounts).map(function (id) {
+            var name = gridManagers[id] || ('#' + id);
+            return name + (ownCounts[id] === total ? ' (cả kệ)' : ' · ' + ownCounts[id] + ' ô');
         });
 
         var rowCount = Math.max(Number(shelf.max_tiers) || 0, tiers.length, maxPosition);
@@ -878,6 +923,7 @@
             + '<button type="button" class="wm-shelf-title" data-shelf="' + esc(shelf.id) + '"'
             + ' data-name="' + esc(shelf.name) + '">' + esc(shelf.code) + ' — ' + esc(shelf.name) + '</button>'
             + '<span class="wm-shelf-stat">' + used + '/' + total + ' ô đã lưu · ' + pctOf(used, total) + '%</span>'
+            + managersChips(owners)
             + '</div>';
 
         var colHead = '';
@@ -911,6 +957,8 @@
             return;
         }
 
+        gridManagers = data.managers || {};
+        var hasLocked = data.cells.some(function (cell) { return cell.lock; });
         var dense = data.shelves.length > 1;
         canvas.className = 'wm-canvas' + (dense ? ' wm-dense' : '');
 
@@ -932,7 +980,7 @@
             return renderShelfBlock(shelf, tiers, cellsByTier, dense, available);
         }).join('');
 
-        renderLegend('grid');
+        renderLegend('grid', hasLocked);
 
         if (data.lightweight) {
             canvas.insertAdjacentHTML('afterbegin',
@@ -1046,6 +1094,13 @@
         var head = '<h6>' + esc(location.code) + '</h6>'
             + '<div class="wm-panel-path">' + path + '</div>';
 
+        if (data.managers && data.managers.length) {
+            head += '<div class="wm-panel-managers">' + managersChips(data.managers.map(function (name) { return 'Phụ trách: ' + name; })) + '</div>';
+        }
+        if (!data.can_manage) {
+            head += '<div class="wm-lock-note"><i class="fas fa-lock mr-1"></i>Kệ này do người khác phụ trách, bạn chỉ xem được.</div>';
+        }
+
         if (Number(location.status_id) !== 1) {
             head += '<span class="badge badge-secondary mb-2">Ngưng sử dụng</span> ';
         }
@@ -1070,14 +1125,18 @@
                   + '<a href="' + labelUrl(doc.id) + '" target="_blank" rel="noopener">In lại nhãn</a></div>'
                 : '';
 
-            return '<div class="wm-doc" data-doc="' + esc(doc.id) + '"'
-                + ' data-from="' + esc(location.id) + '" data-from-code="' + esc(location.code) + '"'
-                + ' data-doc-code="' + esc(doc.code) + '">'
+            // Không được thao tác thì bỏ data-doc để thẻ không kéo được.
+            var dragAttrs = data.can_manage
+                ? ' data-doc="' + esc(doc.id) + '" data-from="' + esc(location.id) + '"'
+                  + ' data-from-code="' + esc(location.code) + '" data-doc-code="' + esc(doc.code) + '"'
+                : '';
+
+            return '<div class="wm-doc"' + dragAttrs + '>'
                 + '<div><b>' + esc(doc.code) + '</b></div>'
                 + '<div>' + esc(doc.name) + (doc.restricted ? ' <span class="badge badge-warning">Riêng tư</span>' : '') + '</div>'
                 + '<dl class="mb-0">' + rows + '</dl>'
                 + staleNote
-                + '<div class="wm-doc-hint"><i class="fas fa-arrows-alt mr-1"></i>Kéo thẻ này thả vào ô trống để đổi vị trí</div>'
+                + (data.can_manage ? '<div class="wm-doc-hint"><i class="fas fa-arrows-alt mr-1"></i>Kéo thẻ này thả vào ô trống để đổi vị trí</div>' : '')
                 + '</div>';
         }).join('');
 
@@ -1388,7 +1447,7 @@
     function emptyCellAt(x, y) {
         var element = document.elementFromPoint(x, y);
         // Chỉ ô trống đang sử dụng mới nhận hồ sơ; ô ngưng sử dụng mang class --off nên bị loại.
-        return element ? element.closest('#wm-canvas .wm-cell--empty[data-cell]') : null;
+        return element ? element.closest('#wm-canvas .wm-cell--empty[data-cell]:not(.wm-cell--locked)') : null;
     }
 
     function startDrag(event) {

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Pages\StorageLocation;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
+use App\StorageLocation\ShelfAccess;
+use App\StorageLocation\ShelfAssignment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -58,6 +60,7 @@ class WarehouseMapController extends Controller
                 ->get();
 
             $level = 'shelf';
+            $coverage = ShelfAssignment::coverage($departmentId, 'warehouse_id', $warehouseId, 'shelf_id');
         } else {
             $rows = $query
                 ->join('warehouses as w', 'w.id', '=', 'l.warehouse_id')
@@ -67,6 +70,17 @@ class WarehouseMapController extends Controller
                 ->get();
 
             $level = 'warehouse';
+            $coverage = ShelfAssignment::coverage($departmentId, 'department_id', $departmentId, 'warehouse_id');
+        }
+
+        // Người quản lý kệ phụ trách từng thẻ, kèm số ô họ phụ trách trong thẻ đó.
+        $names = DB::table('user_management')->whereIn('id', $coverage->pluck('user_id')->unique())->pluck('fullName', 'id');
+        $managers = [];
+        foreach ($coverage as $row) {
+            $managers[$row->group_id][] = ['name' => $names[$row->user_id] ?? '#' . $row->user_id, 'covered' => (int) $row->covered];
+        }
+        foreach ($rows as $row) {
+            $row->managers = $managers[$row->id] ?? [];
         }
 
         return response()->json([
@@ -134,6 +148,10 @@ class WarehouseMapController extends Controller
             ->orderBy('l.code')
             ->get();
 
+        $owners = $shelfId ? ShelfAccess::owners('shelf_id', $shelfId) : ShelfAccess::owners('warehouse_id', $warehouseId);
+        $userId = session('user')['userId'];
+        $supervisor = ShelfAccess::isSupervisor($userId);
+
         $cells = [];
         $seen = [];
         foreach ($rows as $row) {
@@ -152,6 +170,13 @@ class WarehouseMapController extends Controller
                 'busy'   => (int) $row->busy,
                 'off'    => (int) $row->status_id !== 1 ? 1 : 0,
             ];
+
+            if (isset($owners[$row->id])) {
+                $cell['own'] = $owners[$row->id];
+                if (!$supervisor && !ShelfAccess::allows($userId, $owners, (int) $row->id)) {
+                    $cell['lock'] = 1;
+                }
+            }
 
             if ($row->busy) {
                 // Id tài liệu luôn gửi (kể cả ở mức thu nhỏ) vì kéo thả cần nó.
@@ -187,6 +212,7 @@ class WarehouseMapController extends Controller
             'tiers'       => $tiers,
             'cells'       => $cells,
             'lightweight' => $lightweight,
+            'managers'    => ShelfAccess::names($owners),
         ]);
     }
 
@@ -250,9 +276,13 @@ class WarehouseMapController extends Controller
             return $doc;
         });
 
+        $owners = ShelfAccess::owners('id', [$locationId]);
+
         return response()->json([
-            'location'  => $location,
-            'documents' => $documents,
+            'location'   => $location,
+            'documents'  => $documents,
+            'managers'   => array_values(ShelfAccess::names($owners)),
+            'can_manage' => ShelfAccess::denied(session('user')['userId'], [$locationId]) === null,
         ]);
     }
 
@@ -327,6 +357,11 @@ class WarehouseMapController extends Controller
             }
             if ((int) $document->location_id === $targetId) {
                 return ['status' => 422, 'message' => 'Hồ sơ đã nằm ở vị trí này.'];
+            }
+
+            $denied = ShelfAccess::denied(session('user')['userId'], [$document->location_id, $targetId]);
+            if ($denied) {
+                return ['status' => 403, 'message' => $denied];
             }
 
             $occupied = DB::table('documents')->where('location_id', $targetId)->lockForUpdate()->exists();

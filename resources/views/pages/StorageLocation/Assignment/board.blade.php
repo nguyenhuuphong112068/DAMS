@@ -292,6 +292,10 @@
     .sa-tile.is-on { border-color: #86efac; background: #f0fdf4; }
     .sa-tile.is-part { border-color: #bbf7d0; }
 
+    /* Thẻ đang nằm trong vùng kéo chọn */
+    .sa-tile.is-pick { outline: 2px solid #16a34a; outline-offset: 1px; background: #dcfce7; }
+    .sa-tile.is-pick.is-on { outline-color: #dc2626; background: #fee2e2; }
+
     .sa-tile-top { display: flex; align-items: center; gap: 10px; }
 
     .sa-tile-code {
@@ -624,9 +628,10 @@
             function renderHint() {
                 const person = '<b>' + esc(currentPerson().name) + '</b>';
                 const hints = {
-                    warehouses: 'Đang phân công cho ' + person + '. Bấm ô tick để giao cả kho, bấm vào thẻ để giao từng kệ.',
-                    shelves: 'Đang phân công cho ' + person + '. Bấm ô tick để giao cả kệ (<b>Shift + bấm</b> để giao một dãy kệ), '
-                        + 'bấm vào thẻ để mở sơ đồ tầng.',
+                    warehouses: 'Đang phân công cho ' + person + '. Bấm ô tick để giao cả kho, '
+                        + '<b>kéo chuột qua nhiều thẻ</b> để giao hàng loạt, bấm vào thẻ để giao từng kệ.',
+                    shelves: 'Đang phân công cho ' + person + '. Bấm ô tick để giao cả kệ, '
+                        + '<b>kéo chuột qua nhiều thẻ</b> (hoặc Shift + bấm) để giao một dãy kệ, bấm vào thẻ để mở sơ đồ tầng.',
                     grid: 'Đang phân công cho ' + person + '. Bấm tên tầng để giao cả tầng. Bấm hoặc <b>kéo chuột quét vùng</b> để giao; '
                         + 'bắt đầu kéo từ ô đã giao thì sẽ bỏ giao cả vùng.',
                 };
@@ -882,6 +887,10 @@
             });
 
             document.addEventListener('pointermove', (event) => {
+                if (tileDrag) {
+                    paintTiles(event);
+                    return;
+                }
                 if (!drag) return;
                 const node = document.elementFromPoint(event.clientX, event.clientY);
                 const cell = node && node.closest('#sa-grid .sa-cell[data-t]');
@@ -902,9 +911,66 @@
                 toggle(action, 'location', ids);
             }
 
-            document.addEventListener('pointerup', () => endDrag(false));
-            document.addEventListener('pointercancel', () => endDrag(true));
-            document.addEventListener('keydown', (event) => { if (event.key === 'Escape') endDrag(true); });
+            // ---------- Kéo rê qua nhiều thẻ kho / kệ ----------
+            // Cùng ý nghĩa với quét vùng trong sơ đồ: thẻ đầu tiên quyết định là giao hay bỏ giao.
+            let tileDrag = null;
+            let skipClick = false;
+
+            function tilesInRange() {
+                const [from, to] = [Math.min(tileDrag.from, tileDrag.to), Math.max(tileDrag.from, tileDrag.to)];
+                return tileDrag.tiles.slice(from, to + 1)
+                    .filter((tile) => tile.classList.contains('is-on') === tileDrag.removing);
+            }
+
+            function paintTiles(event) {
+                const node = document.elementFromPoint(event.clientX, event.clientY);
+                const tile = node && node.closest('#sa-view .sa-tile');
+                const index = tile ? tileDrag.tiles.indexOf(tile) : -1;
+                if (index < 0 || index === tileDrag.to) return;
+
+                tileDrag.to = index;
+                tileDrag.moved = true;
+                const picked = new Set(tilesInRange());
+                tileDrag.tiles.forEach((item) => item.classList.toggle('is-pick', picked.has(item)));
+            }
+
+            function endTileDrag(cancel) {
+                if (!tileDrag) return;
+                const picked = cancel ? [] : tilesInRange();
+                const moved = tileDrag.moved;
+                const type = tileDrag.type;
+                const action = tileDrag.removing ? 'unassign' : 'assign';
+                tileDrag.tiles.forEach((tile) => tile.classList.remove('is-pick'));
+                tileDrag = null;
+
+                // Bấm không kéo thì giữ nguyên hành vi cũ: mở kho/kệ đó ra.
+                if (!moved || cancel) return;
+                skipClick = true;
+                toggle(action, type, picked.map((tile) => +tile.querySelector('[data-toggle-id]').dataset.toggleId));
+            }
+
+            view.addEventListener('pointerdown', (event) => {
+                if (state.view === 'grid' || state.busy || event.button !== 0) return;
+                const tile = event.target.closest('.sa-tile');
+                if (!tile || event.target.closest('[data-toggle-type]')) return;
+
+                event.preventDefault();
+                const tiles = Array.from(view.querySelectorAll('.sa-tile'));
+                tileDrag = {
+                    tiles,
+                    type: state.view === 'warehouses' ? 'warehouse' : 'shelf',
+                    from: tiles.indexOf(tile),
+                    to: tiles.indexOf(tile),
+                    removing: tile.classList.contains('is-on'),
+                    moved: false,
+                };
+            });
+
+            document.addEventListener('pointerup', () => { endDrag(false); endTileDrag(false); });
+            document.addEventListener('pointercancel', () => { endDrag(true); endTileDrag(true); });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') { endDrag(true); endTileDrag(true); }
+            });
 
             // ---------- Bấm ----------
             let lastCheck = null;
@@ -929,6 +995,12 @@
                     lastCheck = { type, index };
 
                     toggle(action, type, ids);
+                    return;
+                }
+
+                // Vừa kéo qua nhiều thẻ thì không mở thẻ cuối ra nữa.
+                if (skipClick) {
+                    skipClick = false;
                     return;
                 }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Pages\DocumentStorage;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
+use App\StorageLocation\ShelfAccess;
 use App\Support\QrCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -118,6 +119,9 @@ class DocumentController extends Controller
                 $query->where("locations.$field", $request->input($field));
             }
         }
+
+        // Kệ đã giao cho người quản lý kệ khác thì không gợi ý, tránh chọn xong mới bị từ chối.
+        ShelfAccess::scopeManageable($query, $user['userId']);
 
         if ($request->filled('q')) {
             $keyword = trim($request->q);
@@ -246,7 +250,20 @@ class DocumentController extends Controller
             ->get()
             ->groupBy('document_id');
 
+        // Xem "Tất cả" có thể là hàng chục nghìn dòng, khi đó lấy theo bộ phận thay vì liệt kê id.
+        $locationIds = $rows->pluck('location_id')->filter()->unique()->values()->all();
+        $owners = count($locationIds) > 1000
+            ? ShelfAccess::owners('department_id', $selectedDeptId)
+            : ShelfAccess::owners('id', $locationIds);
+        $ownerNames = ShelfAccess::names($owners);
+        $viewerId = session('user')['userId'];
+        $supervisor = ShelfAccess::isSupervisor($viewerId);
+
         foreach ($rows as $row) {
+            $rowOwners = $owners[(int) $row->location_id] ?? [];
+            $row->managers = implode(', ', array_map(fn ($id) => $ownerNames[$id] ?? '#' . $id, $rowOwners));
+            $row->can_manage = $supervisor || ShelfAccess::allows($viewerId, $owners, (int) $row->location_id);
+
             $docTypes = $types[$row->id] ?? collect();
             $row->type_ids = $docTypes->pluck('id')->values();
             $row->type_names = $docTypes->pluck('name')->implode(', ');
@@ -509,6 +526,7 @@ class DocumentController extends Controller
         ]);
 
         [$code, $codeError] = $validator->fails() ? [null, null] : $this->resolveDocumentCode($request->location_id);
+        $codeError = $codeError ?: ShelfAccess::denied(session('user')['userId'], [$request->location_id]);
         if ($codeError) {
             $validator->after(fn($v) => $v->errors()->add('location_id', $codeError));
         }
@@ -573,8 +591,11 @@ class DocumentController extends Controller
 
         $document = DB::table('documents')->where('id', $request->id)->first(['id', 'code', 'location_id']);
         $code = $document->code ?? null;
+        $denied = $document ? ShelfAccess::denied(session('user')['userId'], [$document->location_id, $request->location_id]) : null;
         if (!$validator->fails() && !$document) {
             $validator->after(fn($v) => $v->errors()->add('id', 'Không tìm thấy tài liệu.'));
+        } elseif (!$validator->fails() && $denied) {
+            $validator->after(fn($v) => $v->errors()->add('location_id', $denied));
         } elseif (!$validator->fails() && (int) $document->location_id !== (int) $request->location_id) {
             // Đổi vị trí thì mã tài liệu đổi theo mã vị trí mới
             [$code, $codeError] = $this->resolveDocumentCode($request->location_id, $document->id);
@@ -661,6 +682,11 @@ class DocumentController extends Controller
 
             if (!$document) {
                 return ['status' => 404, 'message' => 'Không tìm thấy hồ sơ hoặc hồ sơ đã bị huỷ.'];
+            }
+
+            $denied = ShelfAccess::denied(session('user')['userId'], [$document->location_id]);
+            if ($denied) {
+                return ['status' => 403, 'message' => $denied];
             }
 
             $location = DB::table('locations')

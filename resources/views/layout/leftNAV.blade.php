@@ -92,7 +92,11 @@
                     $canViewTier = user_has_permission($currentUserId, 'tier.view', 'boolean');
                     $canViewLocation = user_has_permission($currentUserId, 'location.view', 'boolean');
                     $hasStorageLocation = $canViewWarehouse || $canViewShelf || $canViewTier || $canViewLocation;
-                    $canAssignShelfManager = user_has_permission($currentUserId, \App\StorageLocation\ShelfManager::PERMISSION, 'boolean');
+                    $canAssignShelfManager = user_has_permission(
+                        $currentUserId,
+                        \App\StorageLocation\ShelfManager::PERMISSION,
+                        'boolean',
+                    );
 
                     // 4. Sơ Đồ Kho
                     $canViewMap = user_has_permission($currentUserId, 'map.view', 'boolean');
@@ -198,7 +202,7 @@
                         <a href="{{ route('pages.storageLocation.assignment.list') }}"
                             class="nav-link {{ request()->routeIs('pages.storageLocation.assignment.*') ? 'active' : '' }}">
                             <i class="fas fa-user-tag"></i>
-                            <p>Phân Công Quản Lý Kệ</p>
+                            <p>Phân Chia Kệ Quản Lý</p>
                         </a>
                     </li>
                 @endif
