@@ -15,10 +15,20 @@
         <div id="wm-pane-map" role="tabpanel">
             <div class="wm-toolbar">
                 <nav id="wm-breadcrumb" class="wm-breadcrumb"></nav>
+                <div class="wm-toolbar-right">
+                <div class="wm-history" role="group" aria-label="Lịch sử thao tác">
+                    <button type="button" id="wm-undo" class="btn btn-sm btn-outline-secondary" disabled title="Chưa có thao tác để hoàn tác (Ctrl+Z)">
+                        <i class="fas fa-undo mr-1"></i>Hoàn tác <span id="wm-undo-count" class="wm-history-count"></span><kbd class="wm-kbd">Ctrl+Z</kbd>
+                    </button>
+                    <button type="button" id="wm-redo" class="btn btn-sm btn-outline-secondary" disabled title="Chưa có thao tác để làm lại (Ctrl+Y)">
+                        <i class="fas fa-redo mr-1"></i>Làm lại <span id="wm-redo-count" class="wm-history-count"></span><kbd class="wm-kbd">Ctrl+Y</kbd>
+                    </button>
+                </div>
                 <div class="wm-search">
                     <input id="wm-search" type="search" class="form-control form-control-sm"
                         placeholder="Tìm mã tài liệu / mã vị trí..." autocomplete="off">
                     <div id="wm-search-results" class="wm-search-results" hidden></div>
+                </div>
                 </div>
             </div>
 
@@ -71,6 +81,63 @@
     </div>
 
     <div id="wm-toast" class="wm-toast" role="status" aria-live="polite" hidden></div>
+
+    {{-- Thanh thao tác cho các ô đang chọn (Shift + kéo / Shift + bấm) --}}
+    <div id="wm-selbar" class="wm-selbar" role="toolbar" aria-label="Thao tác trên các ô đã chọn" hidden>
+        <span id="wm-selbar-text" class="wm-selbar-text"></span>
+        <button type="button" class="btn btn-sm btn-light" data-sel="edit"><i class="fas fa-pen mr-1"></i>Sửa</button>
+        <button type="button" class="btn btn-sm btn-danger" data-sel="dispose"><i class="fas fa-trash-alt mr-1"></i>Huỷ <span></span></button>
+        <button type="button" class="wm-selbar-close" data-sel="clear" title="Bỏ chọn (Esc)" aria-label="Bỏ chọn"><i class="fas fa-times"></i></button>
+    </div>
+
+    {{-- Hộp thoại tạo / sửa / huỷ hồ sơ --}}
+    <div id="wm-modal" class="wm-modal" hidden>
+        <form id="wm-form" class="wm-modal-box" role="dialog" aria-modal="true" aria-labelledby="wm-modal-title" novalidate>
+            <header class="wm-modal-head">
+                <span id="wm-modal-title"></span>
+                <button type="button" class="wm-float-btn" data-modal-close aria-label="Đóng"><i class="fas fa-times"></i></button>
+            </header>
+            <div class="wm-modal-body">
+                <div id="wm-modal-targets" class="wm-modal-targets"></div>
+
+                <div data-part="fields">
+                    <div class="form-group" data-field="name">
+                        <label class="wm-label">Tên hồ sơ <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control form-control-sm" maxlength="255" autocomplete="off">
+                    </div>
+                    <div class="form-group" data-field="types">
+                        <label class="wm-label">Loại tài liệu</label>
+                        <div id="wm-types" class="wm-types"></div>
+                    </div>
+                    <div class="form-group" data-field="expired">
+                        <label class="wm-label">Ngày hết hạn</label>
+                        <input type="date" name="expired_date" class="form-control form-control-sm">
+                        <small class="form-text text-muted">Để trống nếu hồ sơ không có hạn.</small>
+                    </div>
+                    <div class="form-group mb-0" data-field="file">
+                        <label class="wm-label">Tệp đính kèm</label>
+                        <input type="file" name="file_attachment" class="form-control-file form-control-sm">
+                        <small id="wm-file-current" class="form-text"></small>
+                    </div>
+                </div>
+
+                <div data-part="dispose">
+                    <div class="wm-dispose-warn"><i class="fas fa-exclamation-triangle mr-1"></i>
+                        Hồ sơ sẽ được chuyển vào lịch sử huỷ và vị trí trả về trống. Thao tác này không hoàn tác được.</div>
+                    <div class="form-group mb-0">
+                        <label class="wm-label">Lý do huỷ <span class="text-danger">*</span></label>
+                        <textarea name="reason" rows="3" class="form-control form-control-sm" maxlength="500"></textarea>
+                    </div>
+                </div>
+
+                <div id="wm-modal-error" class="wm-modal-error" hidden></div>
+            </div>
+            <footer class="wm-modal-foot">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-modal-close>Đóng</button>
+                <button type="submit" id="wm-modal-submit" class="btn btn-sm btn-primary"></button>
+            </footer>
+        </form>
+    </div>
 
     <div id="wm-tooltip" class="wm-tooltip" role="tooltip" hidden></div>
 
@@ -528,6 +595,16 @@
     content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0;
     border-style: solid; border-width: 0 9px 9px 0; border-color: transparent #eb6834 transparent transparent;
 }
+.wm-cell--drop-bad { outline: 3px solid #d92d20 !important; outline-offset: 1px; background: #fde8e6 !important; }
+.wm-ghost.is-bad { background: #b42b2b; }
+
+/* Shift + kéo: khung chọn nhiều ô, ô đã chọn viền vàng để không lẫn với ô đang xem chi tiết (viền cam). */
+.wm-marquee {
+    position: fixed; z-index: 1090; pointer-events: none; border: 1px solid #2a78d6; background: rgba(42, 120, 214, .14);
+}
+.wm-marquee[hidden] { display: none; }
+.wm-is-selecting, .wm-is-selecting * { user-select: none !important; cursor: crosshair !important; }
+.wm-cell--picked { outline: 3px solid #f5a300 !important; outline-offset: 1px; box-shadow: inset 0 0 0 2px #fff; }
 .wm-is-dragging .wm-float { opacity: .35; pointer-events: none; }
 .wm-is-dragging .wm-tooltip { display: none; }
 .wm-drag-hint { color: var(--wm-ink-muted); margin-left: auto; }
@@ -566,8 +643,45 @@
 .wm-relabel-table .wm-check input { cursor: pointer; vertical-align: middle; }
 .wm-relabel-tools { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 
+/* ---------- Tạo / sửa / huỷ hồ sơ ---------- */
+.wm-crud { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+.wm-selbar {
+    position: fixed; z-index: 1085; left: 50%; bottom: 76px; transform: translateX(-50%);
+    max-width: calc(100vw - 32px); display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+    background: #fff; border: 1px solid var(--wm-hairline, rgba(0,0,0,.12)); border-radius: 10px;
+    padding: .45rem .5rem .45rem .85rem; box-shadow: 0 10px 28px rgba(0,0,0,.2); font-size: .85rem;
+}
+.wm-selbar[hidden] { display: none; }
+.wm-selbar-text { margin-right: .35rem; color: #334155; }
+.wm-selbar .btn[hidden] { display: none; }
+.wm-selbar-close { background: none; border: 0; width: 28px; height: 28px; border-radius: 5px; color: #64748b; }
+.wm-selbar-close:hover { background: #f1f5f9; }
+.wm-is-dragging .wm-selbar, .wm-is-selecting .wm-selbar { opacity: .35; pointer-events: none; }
+
+.wm-modal { position: fixed; inset: 0; z-index: 1110; background: rgba(15, 23, 42, .45); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; overflow-y: auto; }
+.wm-modal[hidden] { display: none; }
+.wm-modal-box { background: #fff; border-radius: 10px; width: 480px; max-width: 100%; box-shadow: 0 20px 48px rgba(0,0,0,.3); display: flex; flex-direction: column; }
+.wm-modal-head { display: flex; align-items: center; justify-content: space-between; padding: .6rem .6rem .6rem 1rem; background: #184f95; color: #fff; border-radius: 10px 10px 0 0; font-weight: 600; }
+.wm-modal-head.is-danger { background: #b42b2b; }
+.wm-modal-body { padding: 1rem; }
+.wm-modal-foot { display: flex; justify-content: flex-end; gap: .4rem; padding: .65rem 1rem; border-top: 1px solid #e2e8f0; }
+.wm-modal-targets { font-size: .8rem; color: #475569; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: .45rem .6rem; margin-bottom: .85rem; max-height: 84px; overflow-y: auto; }
+.wm-modal-targets b { color: #0f172a; }
+.wm-label { font-weight: 600; font-size: .82rem; margin-bottom: .25rem; display: flex; align-items: center; gap: .35rem; }
+.wm-types { display: flex; flex-wrap: wrap; gap: .3rem .9rem; max-height: 140px; overflow-y: auto; font-size: .82rem; }
+.wm-types label { display: inline-flex; align-items: center; gap: .3rem; margin: 0; font-weight: 400; }
+.wm-dispose-warn { font-size: .8rem; color: #8a1c1c; background: #fdecec; border: 1px solid #f5c2c2; border-radius: 6px; padding: .45rem .6rem; margin-bottom: .75rem; }
+.wm-modal-error { margin-top: .75rem; font-size: .82rem; color: #b42b2b; background: #fdecec; border-radius: 6px; padding: .4rem .6rem; }
+.wm-kbd { font-size: .68rem; opacity: .7; margin-left: .25rem; font-family: inherit; }
+
+.wm-toolbar-right { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.wm-history { display: inline-flex; gap: .3rem; }
+.wm-history .btn { white-space: nowrap; }
+.wm-history-count { font-size: .72rem; opacity: .75; }
+
 @media (max-width: 991px) {
     .wm-search { width: 100%; }
+    .wm-toolbar-right { width: 100%; }
 }
 </style>
 @endverbatim
@@ -579,9 +693,16 @@
     "cell": "{{ route('pages.storageLocation.map.cell') }}",
     "locate": "{{ route('pages.storageLocation.map.locate') }}",
     "move": "{{ route('pages.storageLocation.map.move') }}",
+    "moveBatch": "{{ route('pages.storageLocation.map.moveBatch') }}",
     "relabel": "{{ route('pages.storageLocation.map.relabel') }}",
     "label": "{{ route('pages.documentStorage.document.label') }}",
     "binderLabel": "{{ route('pages.documentStorage.document.binderLabel') }}",
+    "document": "{{ route('pages.storageLocation.map.document') }}",
+    "docCreate": "{{ route('pages.storageLocation.map.documents.create') }}",
+    "docUpdate": "{{ route('pages.storageLocation.map.documents.update') }}",
+    "docDispose": "{{ route('pages.storageLocation.map.documents.dispose') }}",
+    "can": @json($can),
+    "types": @json($documentTypes),
     "csrf": "{{ csrf_token() }}"
 }
 </script>
@@ -592,6 +713,7 @@
     'use strict';
 
     var ROUTES = JSON.parse(document.getElementById('wm-config').textContent);
+    var CAN = ROUTES.can || {};
 
     var canvas = document.getElementById('wm-canvas');
     var panel = document.getElementById('wm-panel');
@@ -720,7 +842,8 @@
                 : '<span class="wm-swatch" style="' + item.style + '"></span>';
             return '<span class="wm-legend-item">' + swatch + esc(item.label) + '</span>';
         }).join('') + (mode === 'grid'
-            ? '<span class="wm-drag-hint"><i class="fas fa-hand-paper mr-1"></i>Kéo ô đã lưu thả vào ô trống để đổi vị trí</span>'
+            ? '<span class="wm-drag-hint"><i class="fas fa-hand-paper mr-1"></i>Kéo ô đã lưu thả vào ô trống để đổi vị trí · '
+              + '<b>Shift + kéo</b> chọn các ô đã lưu để dời hoặc huỷ cả nhóm · bấm ô trống để tạo hồ sơ</span>'
             : '');
     }
 
@@ -742,6 +865,7 @@
     /* ---------- Vẽ ô tổng quan ---------- */
 
     function renderTiles(level, nodes) {
+        clearPicks();
         canvas.className = 'wm-canvas';
 
         if (!nodes.length) {
@@ -814,7 +938,7 @@
         return ordered;
     }
 
-    function cellMarkup(cell, column, showText) {
+    function cellMarkup(cell, column, showText, rowPos) {
         if (!cell) {
             return '<button type="button" class="wm-cell wm-cell--none" disabled'
                 + ' aria-label="Cột ' + column + ': chưa tạo vị trí"></button>';
@@ -842,6 +966,7 @@
 
         return '<button type="button" class="wm-cell ' + cls + '" data-cell="' + cell.id + '"'
             + ' data-code="' + esc(cell.code) + '"' + dragAttrs
+            + (rowPos ? ' data-shelf="' + cell.shelf + '" data-r="' + rowPos + '" data-c="' + column + '"' : '')
             + ' data-tip="' + esc(tip) + '" aria-label="' + esc(cell.code) + ' — ' + status + '">'
             + (showText ? esc(shortLabel(cell.code)) : '') + '</button>';
     }
@@ -910,7 +1035,7 @@
             var markup = '';
 
             for (var column = 1; column <= columns; column++) {
-                markup += cellMarkup(cells[column - 1], column, showText);
+                markup += cellMarkup(cells[column - 1], column, showText, row.position);
             }
 
             return '<div class="wm-row">'
@@ -944,6 +1069,9 @@
     }
 
     function renderGrid(data) {
+        clearPicks();
+        var pendingPick = state.pendingPick;
+        state.pendingPick = null;
         if (data.too_many) {
             // Quá ngưỡng vẽ: lùi về danh sách kệ để người dùng chọn một kệ.
             var alertHtml = '<div class="wm-alert mb-3">Kho này có <b>' + data.total
@@ -985,6 +1113,14 @@
         if (data.lightweight) {
             canvas.insertAdjacentHTML('afterbegin',
                 '<p class="wm-empty-note wm-note mb-2">Đang xem ở mức thu nhỏ — di chuột vào ô để xem mã, bấm vào ô để xem tài liệu.</p>');
+        }
+
+        // Sau khi dời nhóm, giữ nhóm ở vị trí mới để có thể dời tiếp.
+        if (pendingPick) {
+            pendingPick.forEach(function (id) {
+                var el = canvas.querySelector('.wm-cell[data-cell="' + id + '"][data-doc]');
+                if (el) setPicked(el, true);
+            });
         }
 
         if (state.pendingCell) {
@@ -1105,10 +1241,18 @@
             head += '<span class="badge badge-secondary mb-2">Ngưng sử dụng</span> ';
         }
 
+        var active = Number(location.status_id) === 1;
+
         if (!data.documents.length) {
+            var createButton = CAN.create && data.can_manage && active
+                ? '<div class="wm-crud"><button type="button" class="btn btn-sm btn-success" data-crud="create"'
+                  + ' data-location="' + esc(location.id) + '" data-code="' + esc(location.code) + '">'
+                  + '<i class="fas fa-plus mr-1"></i>Tạo hồ sơ tại đây</button></div>'
+                : '';
             panel.innerHTML = head
                 + '<span class="badge badge-light border mb-2">Trống</span>'
-                + '<p class="wm-empty-note mt-2">Vị trí này chưa lưu tài liệu nào.</p>';
+                + '<p class="wm-empty-note mt-2">Vị trí này chưa lưu tài liệu nào.</p>'
+                + createButton;
             return;
         }
 
@@ -1136,6 +1280,18 @@
                 + '<div>' + esc(doc.name) + (doc.restricted ? ' <span class="badge badge-warning">Riêng tư</span>' : '') + '</div>'
                 + '<dl class="mb-0">' + rows + '</dl>'
                 + staleNote
+                + (data.can_manage && (CAN.update || CAN.dispose)
+                    ? '<div class="wm-crud">'
+                      + (CAN.update && !doc.restricted
+                          ? '<button type="button" class="btn btn-sm btn-outline-primary" data-crud="edit" data-doc-id="' + esc(doc.id) + '"'
+                            + ' data-code="' + esc(doc.code) + '"><i class="fas fa-pen mr-1"></i>Sửa</button>'
+                          : '')
+                      + (CAN.dispose
+                          ? '<button type="button" class="btn btn-sm btn-outline-danger" data-crud="dispose" data-doc-id="' + esc(doc.id) + '"'
+                            + ' data-code="' + esc(doc.code) + '"><i class="fas fa-trash-alt mr-1"></i>Huỷ hồ sơ</button>'
+                          : '')
+                      + '</div>'
+                    : '')
                 + (data.can_manage ? '<div class="wm-doc-hint"><i class="fas fa-arrows-alt mr-1"></i>Kéo thẻ này thả vào ô trống để đổi vị trí</div>' : '')
                 + '</div>';
         }).join('');
@@ -1427,6 +1583,182 @@
     ghost.hidden = true;
     document.body.appendChild(ghost);
 
+    /* Chọn nhiều ô: Shift + kéo vẽ khung chọn, Shift + bấm bật/tắt từng ô. Chỉ chọn trong một kệ để
+       phép dời giữ nguyên hình dạng nhóm theo (tầng, cột) — mỗi ô đích là ô nguồn cộng cùng một độ lệch. */
+    var picked = new Set();   // id vị trí (chuỗi) của các ô đã chọn
+    var pickedShelf = null;
+    var marquee = null;
+    var groupMarks = [];      // ô đích đang được tô xem trước khi kéo nhóm
+    var marqueeBox = document.createElement('div');
+    marqueeBox.className = 'wm-marquee';
+    marqueeBox.hidden = true;
+    document.body.appendChild(marqueeBox);
+
+    // Chỉ chọn ô đã lưu hồ sơ (để dời nhóm hoặc huỷ); ô người khác phụ trách không mang data-doc nên bị loại.
+    var PICKABLE = '.wm-cell[data-doc][data-r]';
+
+    function setPicked(el, on) {
+        if (on) {
+            picked.add(el.dataset.cell);
+            pickedShelf = el.dataset.shelf;
+        } else {
+            picked.delete(el.dataset.cell);
+            if (!picked.size) pickedShelf = null;
+        }
+        el.classList.toggle('wm-cell--picked', on);
+        scheduleSelectionBar();
+    }
+
+    function clearPicks() {
+        picked.clear();
+        pickedShelf = null;
+        canvas.querySelectorAll('.wm-cell--picked').forEach(function (el) { el.classList.remove('wm-cell--picked'); });
+        scheduleSelectionBar();
+    }
+
+    function beginMarquee(event) {
+        if (event.target.closest('.wm-shelf-title')) return;
+        var shelf = event.target.closest('#wm-canvas .wm-shelf');
+        if (!shelf) return;
+        marquee = {
+            shelf: shelf, x: event.clientX, y: event.clientY, cx: event.clientX, cy: event.clientY,
+            moved: false, frame: 0, origin: event.target.closest(PICKABLE)
+        };
+    }
+
+    function paintMarquee(m) {
+        m.frame = 0;
+        var left = Math.min(m.x, m.cx), right = Math.max(m.x, m.cx);
+        var top = Math.min(m.y, m.cy), bottom = Math.max(m.y, m.cy);
+        marqueeBox.style.left = left + 'px';
+        marqueeBox.style.top = top + 'px';
+        marqueeBox.style.width = (right - left) + 'px';
+        marqueeBox.style.height = (bottom - top) + 'px';
+
+        // Đọc toàn bộ toạ độ trước rồi mới đổi class, để trình duyệt chỉ tính layout một lần.
+        var hits = [];
+        m.shelf.querySelectorAll(PICKABLE).forEach(function (el) {
+            var box = el.getBoundingClientRect();
+            hits.push([el, box.right >= left && box.left <= right && box.bottom >= top && box.top <= bottom]);
+        });
+        hits.forEach(function (hit) {
+            if (hit[0].classList.contains('wm-cell--picked') !== hit[1]) setPicked(hit[0], hit[1]);
+        });
+    }
+
+    function moveMarquee(event) {
+        marquee.cx = event.clientX;
+        marquee.cy = event.clientY;
+        if (!marquee.moved) {
+            if (Math.abs(marquee.cx - marquee.x) + Math.abs(marquee.cy - marquee.y) < DRAG_THRESHOLD) return;
+            marquee.moved = true;
+            clearPicks();
+            tooltip.hidden = true;
+            marqueeBox.hidden = false;
+            document.body.classList.add('wm-is-selecting');
+        }
+        if (!marquee.frame) marquee.frame = requestAnimationFrame(function () { if (marquee) paintMarquee(marquee); });
+    }
+
+    function stopMarquee() {
+        if (!marquee) return null;
+        var m = marquee;
+        marquee = null;
+        if (m.frame) cancelAnimationFrame(m.frame);
+        marqueeBox.hidden = true;
+        document.body.classList.remove('wm-is-selecting');
+        return m;
+    }
+
+    function endMarquee(event) {
+        if (marquee.moved) {
+            marquee.cx = event.clientX;
+            marquee.cy = event.clientY;
+            paintMarquee(marquee);
+        }
+        var m = stopMarquee();
+
+        if (!m.moved && m.origin) {
+            // Shift + bấm không kéo: bật/tắt riêng ô đó (chuyển sang kệ khác thì bắt đầu chọn lại).
+            if (picked.size && pickedShelf !== m.origin.dataset.shelf) clearPicks();
+            setPicked(m.origin, !m.origin.classList.contains('wm-cell--picked'));
+        }
+
+        // Nhả chuột xong trình duyệt vẫn bắn click, không được để nó mở chi tiết ô.
+        suppressClick = true;
+        setTimeout(function () { suppressClick = false; }, 0);
+
+    }
+
+    function cancelMarquee() {
+        if (!stopMarquee()) return;
+        clearPicks();
+    }
+
+    // Toạ độ (kệ, tầng, cột) của mọi ô đang vẽ, dựng một lần cho mỗi lần kéo nhóm.
+    function buildCellIndex() {
+        var index = new Map();
+        canvas.querySelectorAll('.wm-cell[data-cell][data-r]').forEach(function (el) {
+            index.set(el.dataset.shelf + '|' + el.dataset.r + '|' + el.dataset.c, el);
+        });
+        return index;
+    }
+
+    // Tính nhóm sẽ rơi vào đâu nếu thả tại (x, y): ô đang cầm rơi vào ô dưới con trỏ, các ô còn lại lệch theo.
+    function planGroup(group, x, y) {
+        var element = document.elementFromPoint(x, y);
+        var anchor = element ? element.closest('#wm-canvas .wm-cell[data-cell][data-r]') : null;
+        if (!anchor) return null;
+
+        var grabbed = group.source;
+        var shelf = anchor.dataset.shelf;
+        var dr = Number(anchor.dataset.r) - Number(grabbed.dataset.r);
+        var dc = Number(anchor.dataset.c) - Number(grabbed.dataset.c);
+        if (!dr && !dc && shelf === grabbed.dataset.shelf) return null;
+
+        if (!group.index) group.index = buildCellIndex();
+
+        var plan = { key: shelf + '|' + dr + '|' + dc, ok: true, reason: null, pairs: [], marks: [] };
+        function reject(reason) {
+            plan.ok = false;
+            plan.reason = plan.reason || reason;
+        }
+
+        group.items.forEach(function (item) {
+            var target = group.index.get(shelf + '|' + (item.r + dr) + '|' + (item.c + dc));
+            if (!target) {
+                reject('Nhóm bị lệch ra ngoài kệ hoặc rơi vào vị trí chưa được tạo.');
+                return;
+            }
+            plan.marks.push(target);
+
+            var cls = target.classList;
+            if (cls.contains('wm-cell--off')) reject('Vị trí ' + target.dataset.code + ' đang ngưng sử dụng.');
+            else if (cls.contains('wm-cell--locked')) reject('Vị trí ' + target.dataset.code + ' do người khác phụ trách.');
+            else if (cls.contains('wm-cell--busy') && !cls.contains('wm-cell--picked')) reject('Vị trí ' + target.dataset.code + ' đã có hồ sơ khác.');
+
+            plan.pairs.push({ documentId: item.docId, toId: target.dataset.cell });
+        });
+
+        return plan;
+    }
+
+    function setGroupMarks(plan) {
+        groupMarks.forEach(function (el) { el.classList.remove('wm-cell--drop', 'wm-cell--drop-bad'); });
+        groupMarks = plan ? plan.marks : [];
+        groupMarks.forEach(function (el) { el.classList.add(plan.ok ? 'wm-cell--drop' : 'wm-cell--drop-bad'); });
+        ghost.classList.toggle('is-ok', !!plan && plan.ok);
+        ghost.classList.toggle('is-bad', !!plan && !plan.ok);
+    }
+
+    function trackGroup() {
+        var plan = planGroup(dragging.group, dragging.x, dragging.y);
+        var key = plan ? plan.key : null;
+        if (key === dragging.groupKey) return;
+        dragging.groupKey = key;
+        setGroupMarks(plan);
+    }
+
     function setDropTarget(cell) {
         if (dropTarget === cell) return;
         if (dropTarget) dropTarget.classList.remove('wm-cell--drop');
@@ -1437,8 +1769,9 @@
 
     function clearDrag() {
         setDropTarget(null);
+        setGroupMarks(null);
         document.body.classList.remove('wm-is-dragging');
-        if (dragging && dragging.source) dragging.source.classList.remove('wm-cell--dragging');
+        canvas.querySelectorAll('.wm-cell--dragging').forEach(function (el) { el.classList.remove('wm-cell--dragging'); });
         ghost.hidden = true;
         dragging = null;
         press = null;
@@ -1459,22 +1792,42 @@
             fromCode: source.dataset.fromCode,
             docCode: source.dataset.docCode,
             x: event.clientX,
-            y: event.clientY
+            y: event.clientY,
+            group: null,
+            groupKey: null
         };
         press = null;
 
+        // Cầm một ô đã chọn khi đang chọn nhiều ô thì kéo cả nhóm.
+        var groupCells = source.classList.contains('wm-cell--picked')
+            ? canvas.querySelectorAll('.wm-cell--picked[data-doc]')
+            : [];
+        if (groupCells.length > 1) {
+            var items = [];
+            groupCells.forEach(function (el) {
+                items.push({ el: el, docId: el.dataset.doc, r: Number(el.dataset.r), c: Number(el.dataset.c) });
+            });
+            dragging.group = { source: source, items: items, index: null };
+        }
+
         tooltip.hidden = true;
-        ghost.innerHTML = '<i class="fas fa-file-alt mr-1"></i>'
-            + esc(dragging.docCode || dragging.fromCode) + '<small>Thả vào ô trống</small>';
+        ghost.innerHTML = dragging.group
+            ? '<i class="fas fa-copy mr-1"></i>' + dragging.group.items.length + ' hồ sơ<small>Thả để dời cả nhóm</small>'
+            : '<i class="fas fa-file-alt mr-1"></i>' + esc(dragging.docCode || dragging.fromCode) + '<small>Thả vào ô trống</small>';
         ghost.hidden = false;
         document.body.classList.add('wm-is-dragging');
-        if (source.classList.contains('wm-cell')) source.classList.add('wm-cell--dragging');
+        if (dragging.group) {
+            dragging.group.items.forEach(function (item) { item.el.classList.add('wm-cell--dragging'); });
+        } else if (source.classList.contains('wm-cell')) {
+            source.classList.add('wm-cell--dragging');
+        }
         requestAnimationFrame(autoScroll);
     }
 
     function trackDrag() {
         ghost.style.transform = 'translate(' + (dragging.x + 14) + 'px,' + (dragging.y + 14) + 'px)';
-        setDropTarget(emptyCellAt(dragging.x, dragging.y));
+        if (dragging.group) trackGroup();
+        else setDropTarget(emptyCellAt(dragging.x, dragging.y));
     }
 
     // Kho cao hơn màn hình nên kéo sát mép trên/dưới thì trang tự cuộn theo.
@@ -1492,12 +1845,33 @@
 
     document.addEventListener('pointerdown', function (event) {
         if (event.button !== 0 || !event.isPrimary) return;
-        var source = event.target.closest('[data-doc]');
+        if (event.shiftKey) {
+            beginMarquee(event);
+            return;
+        }
+
+        // Nút Sửa/Huỷ nằm trong thẻ hồ sơ kéo được; bấm nút thì không được tính là bắt đầu kéo.
+        var source = event.target.closest('button[data-crud], a, input') ? null : event.target.closest('[data-doc]');
+        // Bấm ra ngoài nhóm đã chọn thì bỏ chọn; bấm vào một ô của nhóm là chuẩn bị kéo cả nhóm.
+        if (picked.size && event.target.closest('#wm-canvas') && !event.target.closest('.wm-cell--picked')) {
+            clearPicks();
+        }
         if (!source) return;
         press = { source: source, x: event.clientX, y: event.clientY };
     });
 
+    // Giữ Shift rồi bấm sẽ làm trình duyệt bôi đen chữ giữa hai điểm bấm.
+    canvas.addEventListener('mousedown', function (event) {
+        if (event.shiftKey) event.preventDefault();
+    });
+
     window.addEventListener('pointermove', function (event) {
+        if (marquee) {
+            // Nhả chuột ngoài cửa sổ thì không có pointerup, nên huỷ khi thấy nút đã nhả.
+            if (event.buttons === 0) cancelMarquee();
+            else moveMarquee(event);
+            return;
+        }
         if (press) {
             if (Math.abs(event.clientX - press.x) + Math.abs(event.clientY - press.y) < DRAG_THRESHOLD) return;
             startDrag(event);
@@ -1518,10 +1892,15 @@
 
     window.addEventListener('pointerup', function (event) {
         press = null;
+        if (marquee) {
+            endMarquee(event);
+            return;
+        }
         if (!dragging) return;
 
         var move = dragging;
-        var cell = emptyCellAt(event.clientX, event.clientY);
+        var cell = move.group ? null : emptyCellAt(event.clientX, event.clientY);
+        var plan = move.group ? planGroup(move.group, event.clientX, event.clientY) : null;
         clearDrag();
 
         // Thả xong trình duyệt vẫn bắn click lên phần tử chung, không được để nó mở chi tiết ô khác.
@@ -1529,10 +1908,18 @@
         setTimeout(function () { suppressClick = false; }, 0);
 
         if (cell) submitMove(move, cell.dataset.cell, cell.dataset.code);
+        else if (plan && plan.ok) submitBatch(plan.pairs);
+        else if (plan) showToast(esc(plan.reason), { error: true });
     });
 
-    window.addEventListener('pointercancel', clearDrag);
-    window.addEventListener('blur', function () { if (dragging) clearDrag(); });
+    window.addEventListener('pointercancel', function () {
+        cancelMarquee();
+        clearDrag();
+    });
+    window.addEventListener('blur', function () {
+        cancelMarquee();
+        if (dragging) clearDrag();
+    });
 
     document.addEventListener('click', function (event) {
         if (!suppressClick) return;
@@ -1542,34 +1929,35 @@
     }, true);
 
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && dragging) {
+        if (event.key !== 'Escape') return;
+        if (!modal.hidden) {
+            event.stopImmediatePropagation();
+            closeModal();
+        } else if (dragging) {
             event.stopImmediatePropagation();
             clearDrag();
+        } else if (marquee) {
+            event.stopImmediatePropagation();
+            cancelMarquee();
+        } else if (picked.size) {
+            clearPicks();
         }
     }, true);
 
     // Không hỏi xác nhận để thao tác nhanh — bù lại bằng nút "Hoàn tác" ngay trên thông báo.
-    function submitMove(move, toId, toCode, isUndo) {
+    function submitMove(move, toId, toCode) {
         showToast('<i class="fas fa-spinner fa-spin mr-1"></i>Đang chuyển ' + esc(move.docCode || move.fromCode) + '...');
 
         postJson(ROUTES.move, { document_id: move.documentId, to_location_id: toId })
             .then(function (result) {
                 setRelabelCount(result.relabel_count);
+                recordHistory([result]);
 
-                var message = (isUndo ? 'Đã hoàn tác — ' : 'Đã chuyển ') + '<b>' + esc(result.document.code) + '</b>: '
+                var message = 'Đã chuyển <b>' + esc(result.document.code) + '</b>: '
                     + esc(result.from.code) + ' → ' + esc(result.to.code);
                 if (result.stale) message += ' · cần in lại nhãn';
 
-                var actions = [];
-                if (!isUndo) {
-                    // Hoàn tác lại chính chiều vừa đi: đưa hồ sơ về đúng ô cũ.
-                    actions.push({
-                        label: 'Hoàn tác',
-                        run: function () {
-                            submitMove({ documentId: result.document.id, docCode: result.document.code, fromCode: result.to.code }, result.from.id, result.from.code, true);
-                        }
-                    });
-                }
+                var actions = [{ label: 'Hoàn tác', run: undo }];
                 if (result.stale) {
                     actions.push({ label: 'In lại nhãn', run: function () { window.open(labelUrl(result.document.id), '_blank', 'noopener'); } });
                 }
@@ -1585,6 +1973,386 @@
                 load(true);
             });
     }
+
+    // Dời cả nhóm trong một giao dịch: hoặc tất cả cùng đổi chỗ, hoặc không hồ sơ nào đổi.
+    // pairs: [{ documentId, toId }]
+    function submitBatch(pairs) {
+        showToast('<i class="fas fa-spinner fa-spin mr-1"></i>Đang chuyển ' + pairs.length + ' hồ sơ...');
+
+        postJson(ROUTES.moveBatch, {
+            moves: pairs.map(function (pair) { return { document_id: pair.documentId, to_location_id: pair.toId }; })
+        }).then(function (result) {
+            setRelabelCount(result.relabel_count);
+            recordHistory(result.moves);
+
+            var staleCount = result.moves.filter(function (m) { return m.stale; }).length;
+            var message = 'Đã chuyển <b>' + result.moves.length + '</b> hồ sơ';
+            if (staleCount) message += ' · ' + staleCount + ' nhãn cần in lại';
+
+            var actions = [{ label: 'Hoàn tác', run: undo }];
+            if (staleCount) actions.push({ label: 'Xem nhãn cần in', run: function () { showTab('relabel'); } });
+            showToast(message, { actions: actions });
+
+            // Vẽ lại tại chỗ, giữ nhóm ở vị trí mới để có thể dời tiếp.
+            state.pendingPick = result.moves.map(function (m) { return String(m.to.id); });
+            load(true);
+        }).catch(function (error) {
+            showToast(esc(error.message), { error: true });
+            load(true);
+        });
+    }
+
+    /* ---------- Hoàn tác / Làm lại (tối đa 10 thao tác) ----------
+       Mỗi thao tác là một lần thả (1 hồ sơ hoặc cả nhóm). Hoàn tác đưa hồ sơ về ô cũ, làm lại đưa sang ô mới,
+       cả hai đi qua endpoint chuyển hàng loạt nên cả nhóm luôn đổi chỗ trọn vẹn. Lịch sử chỉ sống trong trang này. */
+    var HISTORY_MAX = 10;
+    var undoStack = [];
+    var redoStack = [];
+    var historyBusy = false;
+    var undoButton = document.getElementById('wm-undo');
+    var redoButton = document.getElementById('wm-redo');
+
+    // moves: kết quả trả về từ server, dạng [{ document, from, to }]
+    function recordHistory(moves) {
+        undoStack.push({
+            moves: moves.map(function (m) {
+                return {
+                    docId: m.document.id, docCode: m.document.code,
+                    fromId: m.from.id, fromCode: m.from.code,
+                    toId: m.to.id, toCode: m.to.code
+                };
+            })
+        });
+        if (undoStack.length > HISTORY_MAX) undoStack.shift();
+        redoStack = []; // thao tác mới làm nhánh "làm lại" cũ không còn đúng
+        updateHistoryButtons();
+    }
+
+    function describeEntry(entry, direction) {
+        if (entry.moves.length > 1) return entry.moves.length + ' hồ sơ';
+        var m = entry.moves[0];
+        return m.docCode + ' ' + (direction === 'undo' ? m.toCode + ' → ' + m.fromCode : m.fromCode + ' → ' + m.toCode);
+    }
+
+    function updateHistoryButtons() {
+        var lastUndo = undoStack[undoStack.length - 1];
+        var lastRedo = redoStack[redoStack.length - 1];
+
+        undoButton.disabled = historyBusy || !lastUndo;
+        redoButton.disabled = historyBusy || !lastRedo;
+        document.getElementById('wm-undo-count').textContent = undoStack.length ? '(' + undoStack.length + ')' : '';
+        document.getElementById('wm-redo-count').textContent = redoStack.length ? '(' + redoStack.length + ')' : '';
+        undoButton.title = lastUndo ? 'Hoàn tác: ' + describeEntry(lastUndo, 'undo') + ' (Ctrl+Z)' : 'Chưa có thao tác để hoàn tác (Ctrl+Z)';
+        redoButton.title = lastRedo ? 'Làm lại: ' + describeEntry(lastRedo, 'redo') + ' (Ctrl+Y)' : 'Chưa có thao tác để làm lại (Ctrl+Y)';
+    }
+
+    function stepHistory(direction) {
+        if (historyBusy || dragging || marquee) return;
+        var from = direction === 'undo' ? undoStack : redoStack;
+        var to = direction === 'undo' ? redoStack : undoStack;
+        var entry = from.pop();
+        if (!entry) return;
+
+        var verb = direction === 'undo' ? 'hoàn tác' : 'làm lại';
+        historyBusy = true;
+        updateHistoryButtons();
+        showToast('<i class="fas fa-spinner fa-spin mr-1"></i>Đang ' + verb + ' ' + esc(describeEntry(entry, direction)) + '...');
+
+        postJson(ROUTES.moveBatch, {
+            moves: entry.moves.map(function (m) {
+                return { document_id: m.docId, to_location_id: direction === 'undo' ? m.fromId : m.toId };
+            })
+        }).then(function (result) {
+            setRelabelCount(result.relabel_count);
+            to.push(entry);
+            if (to.length > HISTORY_MAX) to.shift();
+
+            var message = (direction === 'undo' ? 'Đã hoàn tác' : 'Đã làm lại') + ': <b>' + esc(describeEntry(entry, direction)) + '</b>';
+            var actions = [];
+            if (undoStack.length) actions.push({ label: 'Hoàn tác', run: undo });
+            if (redoStack.length) actions.push({ label: 'Làm lại', run: redo });
+            showToast(message, { actions: actions });
+
+            var landed = result.moves.map(function (m) { return String(m.to.id); });
+            if (landed.length > 1) state.pendingPick = landed;
+            else {
+                state.pendingCell = landed[0];
+                state.pendingQuiet = true;
+            }
+            load(true);
+        }).catch(function (error) {
+            // Thường do ô cũ đã bị người khác dùng; bỏ thao tác này khỏi lịch sử để không chặn các bước còn lại.
+            showToast(esc(error.message) + ' — không thể ' + verb + ', đã bỏ thao tác này khỏi lịch sử.', { error: true });
+            load(true);
+        }).then(function () {
+            historyBusy = false;
+            updateHistoryButtons();
+        });
+    }
+
+    function undo() { stepHistory('undo'); }
+    function redo() { stepHistory('redo'); }
+
+    undoButton.addEventListener('click', undo);
+    redoButton.addEventListener('click', redo);
+
+    document.addEventListener('keydown', function (event) {
+        if (!(event.ctrlKey || event.metaKey) || event.altKey || paneMap.hidden || !modal.hidden) return;
+        if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+        var key = event.key.toLowerCase();
+        if (key === 'z' && !event.shiftKey) {
+            event.preventDefault();
+            undo();
+        } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
+            event.preventDefault();
+            redo();
+        }
+    });
+
+    // Hồ sơ đã bị huỷ thì mọi bước hoàn tác/làm lại có nó không còn chạy được, bỏ khỏi lịch sử luôn.
+    function forgetDocuments(ids) {
+        var gone = new Set(ids.map(String));
+        function keep(entry) {
+            return !entry.moves.some(function (m) { return gone.has(String(m.docId)); });
+        }
+        undoStack = undoStack.filter(keep);
+        redoStack = redoStack.filter(keep);
+        updateHistoryButtons();
+    }
+
+    /* ---------- Thanh thao tác cho các ô đã chọn ---------- */
+
+    var selbar = document.getElementById('wm-selbar');
+    var selbarText = document.getElementById('wm-selbar-text');
+    var selFrame = 0;
+
+    function scheduleSelectionBar() {
+        if (!selFrame) selFrame = requestAnimationFrame(updateSelectionBar);
+    }
+
+    function pickedDocs() {
+        var docs = [];
+        canvas.querySelectorAll('.wm-cell--picked[data-doc]').forEach(function (el) {
+            docs.push({ id: el.dataset.doc, code: el.dataset.docCode || el.dataset.code });
+        });
+        return docs;
+    }
+
+    function updateSelectionBar() {
+        selFrame = 0;
+        if (!picked.size) {
+            selbar.hidden = true;
+            return;
+        }
+
+        var count = pickedDocs().length;
+        selbarText.innerHTML = 'Đã chọn <b>' + count + '</b> hồ sơ' + (count > 1 ? ' — kéo ô đã chọn để dời cả nhóm' : '');
+
+        // Sửa chỉ làm trên 1 hồ sơ; huỷ làm được cả nhóm.
+        selbar.querySelector('[data-sel="edit"]').hidden = !CAN.update || count !== 1;
+        var dispose = selbar.querySelector('[data-sel="dispose"]');
+        dispose.hidden = !CAN.dispose || !count;
+        dispose.querySelector('span').textContent = '(' + count + ')';
+        selbar.hidden = !count;
+    }
+
+    selbar.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-sel]');
+        if (!button) return;
+        var docs = pickedDocs();
+        var action = button.dataset.sel;
+
+        if (action === 'clear') clearPicks();
+        else if (action === 'edit' && docs.length === 1) openEdit(docs[0]);
+        else if (action === 'dispose') openDispose(docs);
+    });
+
+    panel.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-crud]');
+        if (!button) return;
+        var action = button.dataset.crud;
+
+        if (action === 'create') openCreate({ id: button.dataset.location, code: button.dataset.code });
+        else if (action === 'edit') openEdit({ id: button.dataset.docId, code: button.dataset.code });
+        else if (action === 'dispose') openDispose([{ id: button.dataset.docId, code: button.dataset.code }]);
+    });
+
+    /* ---------- Hộp thoại tạo / sửa / huỷ ---------- */
+
+    var modal = document.getElementById('wm-modal');
+    var form = document.getElementById('wm-form');
+    var modalHead = modal.querySelector('.wm-modal-head');
+    var modalTitle = document.getElementById('wm-modal-title');
+    var modalTargets = document.getElementById('wm-modal-targets');
+    var modalError = document.getElementById('wm-modal-error');
+    var modalSubmit = document.getElementById('wm-modal-submit');
+    var fileCurrent = document.getElementById('wm-file-current');
+    var modalCtx = null; // { mode: 'create' | 'edit' | 'dispose', targets: [{ id, code }] } — tạo/sửa luôn đúng 1 phần tử
+
+    document.getElementById('wm-types').innerHTML = (ROUTES.types || []).map(function (type) {
+        return '<label><input type="checkbox" name="document_types_id[]" value="' + esc(type.id) + '">' + esc(type.name) + '</label>';
+    }).join('') || '<span class="wm-empty-note">Chưa khai báo loại tài liệu.</span>';
+
+    function targetList(label, targets) {
+        var shown = targets.slice(0, 40).map(function (t) { return '<b>' + esc(t.code) + '</b>'; }).join(', ');
+        return label + ' (' + targets.length + '): ' + shown + (targets.length > 40 ? ', … và ' + (targets.length - 40) + ' ô khác' : '');
+    }
+
+    function showModal(ctx) {
+        modalCtx = ctx;
+        form.reset();
+        modalError.hidden = true;
+        fileCurrent.innerHTML = '';
+        modalSubmit.disabled = false;
+
+        var isDispose = ctx.mode === 'dispose';
+        form.querySelector('[data-part="fields"]').hidden = isDispose;
+        form.querySelector('[data-part="dispose"]').hidden = !isDispose;
+        modalHead.classList.toggle('is-danger', isDispose);
+        modalSubmit.className = 'btn btn-sm ' + (isDispose ? 'btn-danger' : 'btn-primary');
+
+        var n = ctx.targets.length;
+        if (ctx.mode === 'create') {
+            modalTitle.textContent = 'Tạo hồ sơ mới';
+            modalTargets.innerHTML = 'Vị trí: <b>' + esc(ctx.targets[0].code) + '</b> — mã hồ sơ lấy theo mã vị trí.';
+            modalSubmit.textContent = 'Tạo hồ sơ';
+        } else if (ctx.mode === 'edit') {
+            modalTitle.textContent = 'Sửa hồ sơ';
+            modalTargets.innerHTML = 'Hồ sơ: <b>' + esc(ctx.targets[0].code) + '</b>';
+            modalSubmit.textContent = 'Lưu thay đổi';
+        } else {
+            modalTitle.textContent = 'Huỷ hồ sơ';
+            modalTargets.innerHTML = targetList('Hồ sơ', ctx.targets);
+            modalSubmit.textContent = n > 1 ? 'Huỷ ' + n + ' hồ sơ' : 'Huỷ hồ sơ';
+        }
+
+        tooltip.hidden = true;
+        modal.hidden = false;
+        var first = form.querySelector(isDispose ? '[name="reason"]' : '[name="name"]');
+        if (first) first.focus();
+    }
+
+    function closeModal() {
+        modal.hidden = true;
+        modalCtx = null;
+    }
+
+    function openCreate(target) {
+        showModal({ mode: 'create', targets: [target] });
+    }
+
+    function openDispose(targets) {
+        if (!targets.length) return;
+        showModal({ mode: 'dispose', targets: targets });
+    }
+
+    // Tải thông tin hiện tại để điền sẵn vào form.
+    function openEdit(target) {
+        showToast('<i class="fas fa-spinner fa-spin mr-1"></i>Đang tải hồ sơ ' + esc(target.code) + '...');
+        fetchJson(ROUTES.document, { id: target.id }).then(function (doc) {
+            toast.hidden = true;
+            showModal({ mode: 'edit', targets: [{ id: doc.id, code: doc.code }] });
+            form.elements.name.value = doc.name || '';
+            form.elements.expired_date.value = doc.expired_date || '';
+            var types = new Set((doc.type_ids || []).map(String));
+            form.querySelectorAll('[name="document_types_id[]"]').forEach(function (box) { box.checked = types.has(box.value); });
+            if (doc.file_url) {
+                fileCurrent.innerHTML = 'Tệp hiện tại: <a href="' + esc(doc.file_url) + '" target="_blank" rel="noopener">mở tệp</a> — chọn tệp mới để thay.';
+            }
+        }).catch(function () {
+            showToast('Không tải được hồ sơ (có thể là hồ sơ riêng tư hoặc đã bị huỷ).', { error: true });
+        });
+    }
+
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal || event.target.closest('[data-modal-close]')) closeModal();
+    });
+
+    function postForm(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': ROUTES.csrf },
+            body: data
+        }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (body) {
+                if (!response.ok) {
+                    var message = body.message
+                        || (response.status === 419 ? 'Phiên làm việc hết hạn, vui lòng tải lại trang.'
+                            : response.status === 413 ? 'Tệp đính kèm quá lớn.'
+                            : 'Lỗi máy chủ (' + response.status + ').');
+                    throw new Error(message);
+                }
+                return body;
+            });
+        });
+    }
+
+    function modalFail(message) {
+        modalError.textContent = message;
+        modalError.hidden = false;
+        modalSubmit.disabled = false;
+    }
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (!modalCtx || modalSubmit.disabled) return;
+
+        var ctx = modalCtx;
+        var ids = ctx.targets.map(function (t) { return t.id; }).join(',');
+        var data = new FormData();
+        var url;
+        var name = form.elements.name.value.trim();
+        var file = form.elements.file_attachment.files[0];
+
+        if (ctx.mode === 'dispose') {
+            var reason = form.elements.reason.value.trim();
+            if (!reason) return modalFail('Vui lòng nhập lý do huỷ hồ sơ.');
+            url = ROUTES.docDispose;
+            data.append('document_ids', ids);
+            data.append('reason', reason);
+        } else {
+            if (!name) return modalFail('Vui lòng nhập tên hồ sơ.');
+
+            url = ctx.mode === 'create' ? ROUTES.docCreate : ROUTES.docUpdate;
+            data.append(ctx.mode === 'create' ? 'location_id' : 'document_id', ctx.targets[0].id);
+            data.append('name', name);
+            data.append('expired_date', form.elements.expired_date.value);
+            form.querySelectorAll('[name="document_types_id[]"]:checked').forEach(function (box) {
+                data.append('document_types_id[]', box.value);
+            });
+            if (file) data.append('file_attachment', file);
+        }
+
+        modalSubmit.disabled = true;
+        modalError.hidden = true;
+
+        postForm(url, data).then(function (result) {
+            closeModal();
+            setRelabelCount(result.relabel_count);
+
+            var docs = result.documents || [];
+            var n = docs.length;
+            var one = n === 1 ? ' <b>' + esc(docs[0].code) + '</b>' : ' <b>' + n + '</b> hồ sơ';
+            var messages = { create: 'Đã tạo', edit: 'Đã cập nhật', dispose: 'Đã huỷ' };
+            showToast(messages[ctx.mode] + one + (ctx.mode === 'dispose' ? ', vị trí đã trả về trống.' : '.'));
+
+            if (ctx.mode === 'dispose') {
+                forgetDocuments(docs.map(function (d) { return d.id; }));
+            }
+
+            // Ô đang mở chi tiết nằm trong nhóm vừa thao tác thì mở lại để thấy thông tin mới.
+            var touched = docs.map(function (d) { return String(d.location_id); });
+            if (state.selectedCell && touched.indexOf(String(state.selectedCell)) !== -1) {
+                state.pendingCell = String(state.selectedCell);
+                state.pendingQuiet = true;
+            }
+            load(true);
+        }).catch(function (error) {
+            modalFail(error.message);
+        });
+    });
 
     /* ---------- Tab ---------- */
 

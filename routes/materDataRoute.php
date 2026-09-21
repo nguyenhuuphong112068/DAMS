@@ -56,6 +56,7 @@ Route::prefix('/storageLocation')
             Route::get('', 'index')->name('list');
             Route::get('warehouses', 'warehouses')->name('warehouses');
             Route::post('warehouse', 'saveWarehouse')->name('saveWarehouse');
+            Route::get('warehouseLayout', 'warehouseLayout')->name('warehouseLayout');
             Route::get('shelves', 'shelves')->name('shelves');
             Route::get('detail', 'detail')->name('detail');
             Route::post('apply', 'apply')->name('apply');
@@ -78,6 +79,11 @@ Route::prefix('/storageLocation')
             Route::get('cell', 'cell')->name('cell');
             Route::get('locate', 'locate')->name('locate');
             Route::post('move', 'move')->name('move');
+            Route::post('move-batch', 'moveBatch')->name('moveBatch');
+            Route::get('document', 'document')->name('document');
+            Route::post('documents/create', 'createDocument')->name('documents.create');
+            Route::post('documents/update', 'updateDocument')->name('documents.update');
+            Route::post('documents/dispose', 'disposeDocuments')->name('documents.dispose');
             Route::get('relabel', 'relabel')->name('relabel');
         });
     });

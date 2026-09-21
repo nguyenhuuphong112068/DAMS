@@ -7,6 +7,7 @@ use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
 use App\StorageLocation\TierCapacity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 // Gộp thao tác khai báo Kệ - Tầng - Vị Trí vào một lưới: hàng là tầng, cột là vị trí.
@@ -19,6 +20,7 @@ class StructureController extends Controller
     // Một lượt tạo dựng tới vài chục nghìn dòng locations, nên chặn ngưỡng để
     // request không treo và transaction không phình quá lớn.
     private const MAX_BATCH_CELLS = 30000;
+    private const MAX_LAYOUT_KB = 20480;
 
     public function index()
     {
@@ -38,7 +40,7 @@ class StructureController extends Controller
 
         $warehouses = DB::table('warehouses')
             ->where('department_id', $departmentId)
-            ->select('id', 'code', 'name', 'status_id', 'active')
+            ->select('id', 'code', 'name', 'status_id', 'active', 'layout_name', DB::raw('layout_path IS NOT NULL as has_layout'))
             ->orderBy('code')
             ->get();
 
@@ -58,6 +60,7 @@ class StructureController extends Controller
             ->keyBy('warehouse_id');
 
         foreach ($warehouses as $warehouse) {
+            $warehouse->has_layout = (bool) $warehouse->has_layout;
             $warehouse->shelves = (int) ($shelfCounts[$warehouse->id] ?? 0);
             $warehouse->total   = (int) ($stats[$warehouse->id]->total ?? 0);
             $warehouse->used    = (int) ($stats[$warehouse->id]->used ?? 0);
@@ -79,10 +82,16 @@ class StructureController extends Controller
         $validator = Validator::make($request->all(), [
             'code' => 'required|string|max:50|unique:warehouses,code' . ($id ? ',' . $id : ''),
             'name' => 'required|string|max:255',
+            // Kho mới bắt buộc có sơ đồ; khi sửa chỉ cần đính kèm nếu muốn thay file.
+            'layout' => [$id ? 'nullable' : 'required', 'file', 'mimes:pdf', 'max:' . self::MAX_LAYOUT_KB],
         ], [
-            'code.required' => 'Chưa nhập mã kho.',
-            'code.unique'   => 'Mã kho này đã được dùng cho kho khác.',
-            'name.required' => 'Chưa nhập tên kho.',
+            'code.required'   => 'Chưa nhập mã kho.',
+            'code.unique'     => 'Mã kho này đã được dùng cho kho khác.',
+            'name.required'   => 'Chưa nhập tên kho.',
+            'layout.required' => 'Chưa đính kèm sơ đồ kho (file PDF).',
+            'layout.mimes'    => 'Sơ đồ kho phải là file PDF.',
+            'layout.max'      => 'Sơ đồ kho tối đa ' . intdiv(self::MAX_LAYOUT_KB, 1024) . ' MB.',
+            'layout.uploaded' => 'Không tải được file sơ đồ kho lên máy chủ (file quá lớn?).',
         ]);
 
         if ($validator->fails()) {
@@ -101,12 +110,22 @@ class StructureController extends Controller
                 return response()->json(['message' => 'Không tìm thấy kho.'], 404);
             }
 
-            DB::table('warehouses')->where('id', $id)->update([
+            $fields = [
                 'code'       => $request->input('code'),
                 'name'       => $request->input('name'),
                 'updated_by' => $actor,
                 'updated_at' => now(),
-            ]);
+            ];
+
+            if ($request->hasFile('layout')) {
+                $fields += $this->storeLayout($request->file('layout'));
+            }
+
+            DB::table('warehouses')->where('id', $id)->update($fields);
+
+            if (isset($fields['layout_path']) && $warehouse->layout_path) {
+                Storage::disk('local')->delete($warehouse->layout_path);
+            }
 
             AuditTrialController::log(
                 'Sửa kho',
@@ -124,7 +143,7 @@ class StructureController extends Controller
                 'active'        => 1,
                 'created_by'    => $actor,
                 'created_at'    => now(),
-            ]);
+            ] + $this->storeLayout($request->file('layout')));
 
             AuditTrialController::log('Tạo kho', 'warehouses', $id, null, $request->input('code') . ' — ' . $request->input('name'));
         }
@@ -134,6 +153,34 @@ class StructureController extends Controller
             'warehouse_id' => $id,
             'message'      => 'Đã lưu kho ' . $request->input('code') . '.',
         ]);
+    }
+
+    private function storeLayout($file): array
+    {
+        return [
+            'layout_path' => $file->store('warehouse_layouts', 'local'),
+            'layout_name' => $file->getClientOriginalName(),
+        ];
+    }
+
+    // Mở sơ đồ kho (PDF) ngay trên trình duyệt; file nằm ở disk private nên chỉ đi qua route này.
+    public function warehouseLayout(Request $request)
+    {
+        $warehouse = DB::table('warehouses')
+            ->where('id', $request->input('warehouse_id'))
+            ->where('department_id', session('user')['selected_department_id'])
+            ->first();
+
+        if (!$warehouse || !$warehouse->layout_path || !Storage::disk('local')->exists($warehouse->layout_path)) {
+            abort(404, 'Kho này chưa có sơ đồ.');
+        }
+
+        return Storage::disk('local')->response(
+            $warehouse->layout_path,
+            $warehouse->layout_name ?: 'so-do-kho-' . $warehouse->code . '.pdf',
+            ['Content-Type' => 'application/pdf'],
+            'inline'
+        );
     }
 
     // Danh sách kệ của một kho, kèm số tầng và tỉ lệ đã dùng để chọn nhanh.

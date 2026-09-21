@@ -29,6 +29,11 @@
                         <input type="text" id="sc-wh-name" class="form-control form-control-sm"
                             placeholder="VD: Kho hồ sơ lầu 3">
                     </div>
+                    <div class="form-group mb-0">
+                        <label>Sơ đồ kho (PDF) <span class="text-danger" id="sc-wh-layout-req">*</span></label>
+                        <input type="file" id="sc-wh-layout" class="form-control form-control-sm" accept="application/pdf,.pdf">
+                        <small id="sc-wh-layout-cur" class="text-muted" hidden></small>
+                    </div>
                     <div class="sc-panel-actions">
                         <button type="button" id="sc-wh-save" class="btn btn-sm btn-primary">Lưu kho</button>
                         <button type="button" id="sc-wh-cancel" class="btn btn-sm btn-outline-secondary">Huỷ</button>
@@ -288,6 +293,37 @@
         font-size: .75rem;
         cursor: pointer;
         transition: all .2s ease;
+    }
+
+    .sc-tile-plan {
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #b91c1c;
+        border-radius: 8px;
+        height: 28px;
+        padding: 0 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: .72rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .2s ease;
+    }
+
+    .sc-tile-plan:hover {
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+
+    .sc-tile-plan.is-missing {
+        color: #94a3b8;
+        cursor: not-allowed;
+    }
+
+    .sc-tile-plan.is-missing:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
     }
 
     .sc-tile-edit:hover {
@@ -730,6 +766,7 @@
 {
     "warehouses": "{{ route('pages.storageLocation.structure.warehouses') }}",
     "saveWarehouse": "{{ route('pages.storageLocation.structure.saveWarehouse') }}",
+    "warehouseLayout": "{{ route('pages.storageLocation.structure.warehouseLayout') }}",
     "shelves": "{{ route('pages.storageLocation.structure.shelves') }}",
     "detail": "{{ route('pages.storageLocation.structure.detail') }}",
     "apply": "{{ route('pages.storageLocation.structure.apply') }}",
@@ -765,6 +802,9 @@
     var elWhName = byId('sc-wh-name');
     var elWhSave = byId('sc-wh-save');
     var elWhCancel = byId('sc-wh-cancel');
+    var elWhLayout = byId('sc-wh-layout');
+    var elWhLayoutReq = byId('sc-wh-layout-req');
+    var elWhLayoutCur = byId('sc-wh-layout-cur');
     var elLegend = byId('sc-legend');
     var elBlocks = byId('sc-blocks');
     var elAddMore = byId('sc-add-more');
@@ -846,6 +886,12 @@
             +   '</div>'
             +   '<div class="sc-tile-tools">'
             +     '<span class="sc-tile-badge sc-badge-b' + bucket + '">' + pct + '% ' + BUCKETS[bucket] + '</span>'
+            +     (options.editable
+                    ? '<button type="button" class="sc-tile-plan' + (item.has_layout ? '' : ' is-missing') + '"'
+                        + ' data-plan="' + item.id + '"'
+                        + ' title="' + (item.has_layout ? 'Xem sơ đồ kho' : 'Kho này chưa có sơ đồ') + '">'
+                        + '<i class="fas fa-file-pdf"></i> Sơ đồ</button>'
+                    : '')
             +     (options.editable
                     ? '<button type="button" class="sc-tile-edit" data-edit="' + item.id + '" title="Sửa mã và tên">'
                         + '<i class="fas fa-pen"></i></button>'
@@ -989,6 +1035,17 @@
     }
 
     elWarehouses.addEventListener('click', function (event) {
+        var plan = event.target.closest('.sc-tile-plan');
+        if (plan) {
+            var target = state.warehouses.find(function (w) { return String(w.id) === plan.dataset.plan; });
+            if (target && target.has_layout) {
+                window.open(CFG.warehouseLayout + '?warehouse_id=' + encodeURIComponent(target.id), '_blank');
+            } else {
+                toast('info', 'Kho này chưa có sơ đồ. Bấm nút sửa để đính kèm file PDF.');
+            }
+            return;
+        }
+
         var edit = event.target.closest('.sc-tile-edit');
         if (edit) {
             openWarehouseForm(state.warehouses.find(function (w) { return String(w.id) === edit.dataset.edit; }));
@@ -1008,6 +1065,13 @@
         elWhTitle.textContent = warehouse ? 'Sửa kho ' + warehouse.code : 'Kho mới';
         elWhCode.value = warehouse ? warehouse.code : '';
         elWhName.value = warehouse ? warehouse.name : '';
+        elWhLayout.value = '';
+        // Kho mới bắt buộc có sơ đồ; khi sửa chỉ đính kèm nếu muốn thay file.
+        elWhLayoutReq.hidden = !!warehouse;
+        elWhLayoutCur.hidden = !(warehouse && warehouse.has_layout);
+        elWhLayoutCur.textContent = warehouse && warehouse.has_layout
+            ? 'Đang dùng: ' + (warehouse.layout_name || 'so-do-kho.pdf') + '. Chọn file mới nếu muốn thay.'
+            : '';
         elWhForm.hidden = false;
         elWhCode.focus();
     }
@@ -1028,13 +1092,25 @@
             return;
         }
 
+        var layout = elWhLayout.files[0];
+        if (!state.editingWarehouse && !layout) {
+            toast('warning', 'Đính kèm sơ đồ kho (file PDF) trước khi lưu.');
+            return;
+        }
+        if (layout && !/\.pdf$/i.test(layout.name)) {
+            toast('warning', 'Sơ đồ kho phải là file PDF.');
+            return;
+        }
+
         elWhSave.disabled = true;
 
-        post(CFG.saveWarehouse, {
-            id: state.editingWarehouse ? state.editingWarehouse.id : null,
-            code: code,
-            name: name
-        }).then(function (result) {
+        var form = new FormData();
+        if (state.editingWarehouse) form.append('id', state.editingWarehouse.id);
+        form.append('code', code);
+        form.append('name', name);
+        if (layout) form.append('layout', layout);
+
+        post(CFG.saveWarehouse, form).then(function (result) {
             elWhSave.disabled = false;
             if (!result.ok) {
                 toast('error', result.data.message || 'Không lưu được kho.');
@@ -1747,10 +1823,14 @@
     /* ---------- lưu ---------- */
 
     function post(url, payload) {
+        var isForm = payload instanceof FormData;
+        var headers = { 'X-CSRF-TOKEN': CFG.csrf, 'Accept': 'application/json' };
+        if (!isForm) headers['Content-Type'] = 'application/json';
+
         return fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CFG.csrf },
-            body: JSON.stringify(payload)
+            headers: headers,
+            body: isForm ? payload : JSON.stringify(payload)
         })
             .then(function (response) {
                 return response.json().then(function (data) { return { ok: response.ok, data: data }; });

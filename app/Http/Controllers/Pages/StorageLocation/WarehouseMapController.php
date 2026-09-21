@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Pages\StorageLocation;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
+use App\StorageLocation\DocumentDisposal;
 use App\StorageLocation\ShelfAccess;
 use App\StorageLocation\ShelfAssignment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class WarehouseMapController extends Controller
 {
@@ -16,6 +18,9 @@ class WarehouseMapController extends Controller
 
     // Ở mức phóng to này chữ trong ô không còn đọc được, nên bỏ mã tài liệu khỏi payload.
     private const LIGHTWEIGHT_ABOVE = 3000;
+
+    // Số hồ sơ tối đa dời cùng lúc bằng chọn nhiều ô.
+    private const MAX_BATCH = 500;
 
     public function index()
     {
@@ -29,9 +34,17 @@ class WarehouseMapController extends Controller
 
         session()->put(['title' => 'VỊ TRÍ LƯU TRỮ - SƠ ĐỒ KHO']);
 
+        $userId = session('user')['userId'];
+
         return view('pages.StorageLocation.Map.list', [
-            'warehouses'   => $warehouses,
-            'departmentId' => $departmentId,
+            'warehouses'    => $warehouses,
+            'departmentId'  => $departmentId,
+            'documentTypes' => DB::table('document_types')->orderBy('name')->get(['id', 'name']),
+            'can'           => [
+                'create'  => user_has_permission($userId, 'document.create', 'boolean'),
+                'update'  => user_has_permission($userId, 'document.update', 'boolean'),
+                'dispose' => user_has_permission($userId, 'document.dispose', 'boolean'),
+            ],
         ]);
     }
 
@@ -412,6 +425,464 @@ class WarehouseMapController extends Controller
         }
 
         return response()->json(['ok' => true, 'relabel_count' => $this->relabelQuery($departmentId)->count()] + $result);
+    }
+
+    // Dời cả nhóm hồ sơ bằng Shift + kéo: mọi hồ sơ đổi chỗ trong cùng một giao dịch, hoặc không hồ sơ nào đổi.
+    // Ô đích được phép là ô đang chứa chính một hồ sơ trong nhóm (vì nó sẽ được dời đi), nên kéo nhóm lệch
+    // một ô sang bên cạnh vẫn hợp lệ.
+    public function moveBatch(Request $request)
+    {
+        $departmentId = session('user')['selected_department_id'];
+        $actor = session('user')['fullName'] ?? 'NA';
+
+        $moves = collect($request->input('moves', []))
+            ->map(fn ($m) => ['document_id' => (int) ($m['document_id'] ?? 0), 'to_location_id' => (int) ($m['to_location_id'] ?? 0)])
+            ->values();
+
+        if ($moves->isEmpty() || $moves->count() > self::MAX_BATCH) {
+            return response()->json(['ok' => false, 'message' => 'Số hồ sơ chuyển mỗi lần phải từ 1 đến ' . self::MAX_BATCH . '.'], 422);
+        }
+        if ($moves->contains(fn ($m) => !$m['document_id'] || !$m['to_location_id'])
+            || $moves->pluck('document_id')->unique()->count() !== $moves->count()
+            || $moves->pluck('to_location_id')->unique()->count() !== $moves->count()) {
+            return response()->json(['ok' => false, 'message' => 'Danh sách chuyển không hợp lệ.'], 422);
+        }
+
+        $result = DB::transaction(function () use ($departmentId, $actor, $moves) {
+            $targetIds = $moves->pluck('to_location_id')->all();
+            $documentIds = $moves->pluck('document_id')->all();
+
+            // Khoá ô đích theo thứ tự id để hai nhóm thả chồng nhau không khoá chéo (deadlock).
+            $targets = DB::table('locations')
+                ->whereIn('id', $targetIds)
+                ->where('department_id', $departmentId)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            if ($targets->count() !== count($targetIds)) {
+                return ['status' => 404, 'message' => 'Có vị trí đích không tồn tại.'];
+            }
+            $inactive = $targets->first(fn ($t) => (int) $t->status_id !== 1);
+            if ($inactive) {
+                return ['status' => 422, 'message' => 'Vị trí ' . $inactive->code . ' đang ngưng sử dụng.'];
+            }
+
+            $documents = DB::table('documents')
+                ->whereIn('id', $documentIds)
+                ->where('department_id', $departmentId)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            if ($documents->count() !== count($documentIds)) {
+                return ['status' => 404, 'message' => 'Có hồ sơ không tồn tại.'];
+            }
+
+            $sourceIds = $documents->pluck('location_id')->map(fn ($id) => (int) $id)->all();
+
+            $denied = ShelfAccess::denied(session('user')['userId'], array_merge($sourceIds, $targetIds));
+            if ($denied) {
+                return ['status' => 403, 'message' => $denied];
+            }
+
+            // Ô đích đã có hồ sơ ngoài nhóm thì từ chối; hồ sơ trong nhóm sẽ rời đi nên không tính.
+            $blocker = DB::table('documents')
+                ->whereIn('location_id', $targetIds)
+                ->whereNotIn('id', $documentIds)
+                ->lockForUpdate()
+                ->value('location_id');
+            if ($blocker) {
+                return ['status' => 409, 'message' => 'Vị trí ' . $targets[(int) $blocker]->code . ' đã có hồ sơ khác.'];
+            }
+
+            $sources = DB::table('locations')->whereIn('id', $sourceIds)->pluck('code', 'id');
+            $done = [];
+
+            foreach ($moves as $move) {
+                $document = $documents[$move['document_id']];
+                $target = $targets[$move['to_location_id']];
+                $fromId = (int) $document->location_id;
+
+                if ($fromId === (int) $target->id) {
+                    continue; // hồ sơ đã ở đúng chỗ, không cần ghi
+                }
+
+                $labeledId = $document->labeled_location_id ?? $fromId;
+
+                DB::table('documents')->where('id', $document->id)->update([
+                    'location_id'         => $target->id,
+                    'labeled_location_id' => $labeledId,
+                    'updated_by'          => $actor,
+                    'updated_at'          => now(),
+                ]);
+
+                DB::table('document_moves')->insert([
+                    'document_id'      => $document->id,
+                    'from_location_id' => $fromId,
+                    'to_location_id'   => $target->id,
+                    'moved_by'         => $actor,
+                    'created_at'       => now(),
+                ]);
+
+                AuditTrialController::log(
+                    'Chuyển vị trí',
+                    'documents',
+                    $document->id,
+                    'Vị trí: ' . ($sources[$fromId] ?? '-'),
+                    'Chuyển hồ sơ ' . $document->code . ' từ ' . ($sources[$fromId] ?? '-') . ' sang ' . $target->code
+                );
+
+                $done[] = [
+                    'document' => ['id' => (int) $document->id, 'code' => $document->code],
+                    'from'     => ['id' => $fromId, 'code' => $sources[$fromId] ?? null],
+                    'to'       => ['id' => (int) $target->id, 'code' => $target->code],
+                    'stale'    => (int) $labeledId !== (int) $target->id,
+                ];
+            }
+
+            if (!$done) {
+                return ['status' => 422, 'message' => 'Các hồ sơ đã nằm ở vị trí này.'];
+            }
+
+            return ['status' => 200, 'moves' => $done];
+        });
+
+        $status = $result['status'];
+        unset($result['status']);
+
+        if ($status !== 200) {
+            return response()->json(['ok' => false] + $result, $status);
+        }
+
+        return response()->json(['ok' => true, 'relabel_count' => $this->relabelQuery($departmentId)->count()] + $result);
+    }
+
+    /* ---------- Tạo / sửa / huỷ hồ sơ ngay trên sơ đồ ----------
+       Tạo mới và sửa chỉ làm trên 1 ô; huỷ làm được trên nhiều ô đã chọn, trong một giao dịch. */
+
+    // Thông tin đầy đủ của một hồ sơ để điền sẵn vào form sửa.
+    public function document(Request $request)
+    {
+        $departmentId = session('user')['selected_department_id'];
+
+        $doc = DB::table('documents')
+            ->where('id', (int) $request->input('id'))
+            ->where('department_id', $departmentId)
+            ->first(['id', 'code', 'name', 'owner', 'created_by', 'is_private', 'expired_date', 'filepath', 'location_id']);
+
+        if (!$doc) {
+            return response()->json(['message' => 'Không tìm thấy hồ sơ.'], 404);
+        }
+        if ($this->isRestricted($doc)) {
+            return response()->json(['message' => 'Hồ sơ riêng tư, bạn không xem hoặc sửa được.'], 403);
+        }
+
+        return response()->json([
+            'id'           => (int) $doc->id,
+            'code'         => $doc->code,
+            'name'         => $doc->name,
+            'expired_date' => $doc->expired_date ? substr($doc->expired_date, 0, 10) : null,
+            'file_url'     => $doc->filepath ? (strpos($doc->filepath, 'http') === 0 ? $doc->filepath : asset($doc->filepath)) : null,
+            'type_ids'     => DB::table('document_has_types')->where('document_id', $doc->id)->pluck('document_type_id')->map(fn ($id) => (int) $id),
+        ]);
+    }
+
+    // Tạo hồ sơ tại một ô trống. Mã hồ sơ là mã vị trí.
+    public function createDocument(Request $request)
+    {
+        $userId = session('user')['userId'];
+        if (!user_has_permission($userId, 'document.create', 'boolean')) {
+            return response()->json(['message' => 'Bạn không có quyền thêm hồ sơ.'], 403);
+        }
+
+        $departmentId = session('user')['selected_department_id'];
+        $actor = session('user')['fullName'] ?? 'NA';
+        $locationIds = array_filter([(int) $request->input('location_id')]);
+        $name = trim((string) $request->input('name'));
+
+        if (!$locationIds) {
+            return response()->json(['message' => 'Chưa chọn vị trí.'], 422);
+        }
+        if ($name === '' || mb_strlen($name) > 255) {
+            return response()->json(['message' => 'Tên hồ sơ bắt buộc và tối đa 255 ký tự.'], 422);
+        }
+        if ($error = $this->checkDate($request->input('expired_date'))) {
+            return response()->json(['message' => $error], 422);
+        }
+        $typeIds = $this->typeIds($request->input('document_types_id'));
+
+        $result = DB::transaction(function () use ($request, $departmentId, $actor, $userId, $locationIds, $name, $typeIds) {
+            $locations = DB::table('locations')
+                ->whereIn('id', $locationIds)
+                ->where('department_id', $departmentId)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id', 'code', 'status_id']);
+
+            if ($locations->count() !== count($locationIds)) {
+                return ['status' => 404, 'message' => 'Có vị trí không tồn tại.'];
+            }
+            $inactive = $locations->first(fn ($l) => (int) $l->status_id !== 1);
+            if ($inactive) {
+                return ['status' => 422, 'message' => 'Vị trí ' . $inactive->code . ' đang ngưng sử dụng.'];
+            }
+            if ($denied = ShelfAccess::denied($userId, $locationIds)) {
+                return ['status' => 403, 'message' => $denied];
+            }
+
+            $occupied = DB::table('documents')->whereIn('location_id', $locationIds)->lockForUpdate()->value('location_id');
+            if ($occupied) {
+                return ['status' => 409, 'message' => 'Vị trí ' . $locations->firstWhere('id', $occupied)->code . ' đã có hồ sơ khác.'];
+            }
+            $duplicated = DB::table('documents')->whereIn('code', $locations->pluck('code'))->value('code');
+            if ($duplicated) {
+                return ['status' => 409, 'message' => 'Mã hồ sơ ' . $duplicated . ' đã tồn tại.'];
+            }
+
+            $filepath = $this->storeAttachment($request);
+            $created = [];
+
+            foreach ($locations as $location) {
+                $docId = DB::table('documents')->insertGetId([
+                    'code'          => $location->code,
+                    'name'          => $name,
+                    'owner'         => $actor,
+                    'filepath'      => $filepath,
+                    'location_id'   => $location->id,
+                    'department_id' => $departmentId,
+                    'expired_date'  => $request->input('expired_date') ?: null,
+                    'is_private'    => false,
+                    'status_id'     => 1,
+                    'created_by'    => $actor,
+                    'created_at'    => now(),
+                ]);
+
+                $this->syncTypes($docId, $typeIds);
+
+                AuditTrialController::log(
+                    'Thêm hồ sơ',
+                    'documents',
+                    $docId,
+                    'NA',
+                    'Thêm hồ sơ ' . $location->code . ' - ' . $name . ' tại vị trí ' . $location->code . ' (từ sơ đồ kho)'
+                );
+
+                $created[] = ['id' => $docId, 'code' => $location->code, 'location_id' => (int) $location->id];
+            }
+
+            return ['status' => 200, 'documents' => $created];
+        });
+
+        return $this->batchResponse($result, $departmentId);
+    }
+
+    // Sửa thông tin một hồ sơ (tên, loại, hạn, tệp đính kèm). Vị trí đổi bằng kéo thả, không sửa ở đây.
+    public function updateDocument(Request $request)
+    {
+        $userId = session('user')['userId'];
+        if (!user_has_permission($userId, 'document.update', 'boolean')) {
+            return response()->json(['message' => 'Bạn không có quyền sửa hồ sơ.'], 403);
+        }
+
+        $departmentId = session('user')['selected_department_id'];
+        $actor = session('user')['fullName'] ?? 'NA';
+        $documentId = (int) $request->input('document_id');
+        $name = trim((string) $request->input('name'));
+
+        if (!$documentId) {
+            return response()->json(['message' => 'Chưa chọn hồ sơ.'], 422);
+        }
+        if ($name === '' || mb_strlen($name) > 255) {
+            return response()->json(['message' => 'Tên hồ sơ bắt buộc và tối đa 255 ký tự.'], 422);
+        }
+        if ($error = $this->checkDate($request->input('expired_date'))) {
+            return response()->json(['message' => $error], 422);
+        }
+        $typeIds = $this->typeIds($request->input('document_types_id'));
+
+        $result = DB::transaction(function () use ($request, $departmentId, $actor, $userId, $documentId, $name, $typeIds) {
+            $document = DB::table('documents')
+                ->where('id', $documentId)
+                ->where('department_id', $departmentId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$document) {
+                return ['status' => 404, 'message' => 'Không tìm thấy hồ sơ hoặc hồ sơ đã bị huỷ.'];
+            }
+            if ($this->isRestricted($document)) {
+                return ['status' => 403, 'message' => 'Hồ sơ ' . $document->code . ' là hồ sơ riêng tư, bạn không sửa được.'];
+            }
+            if ($denied = ShelfAccess::denied($userId, [$document->location_id])) {
+                return ['status' => 403, 'message' => $denied];
+            }
+
+            $expired = $request->input('expired_date') ?: null;
+            $changes = [
+                'name'         => $name,
+                'expired_date' => $expired,
+                'updated_by'   => $actor,
+                'updated_at'   => now(),
+            ];
+            if ($filepath = $this->storeAttachment($request)) {
+                $changes['filepath'] = $filepath;
+            }
+
+            DB::table('documents')->where('id', $document->id)->update($changes);
+            DB::table('document_has_types')->where('document_id', $document->id)->delete();
+            $this->syncTypes($document->id, $typeIds);
+
+            AuditTrialController::log(
+                'Sửa hồ sơ',
+                'documents',
+                $document->id,
+                'Tên: ' . $document->name . ' | Hết hạn: ' . ($document->expired_date ?: '-'),
+                'Sửa hồ sơ ' . $document->code . ' (từ sơ đồ kho) | Tên: ' . $name . ' | Hết hạn: ' . ($expired ?: '-')
+                    . (isset($changes['filepath']) ? ' | Thay tệp đính kèm' : '')
+            );
+
+            return ['status' => 200, 'documents' => [
+                ['id' => (int) $document->id, 'code' => $document->code, 'location_id' => (int) $document->location_id],
+            ]];
+        });
+
+        return $this->batchResponse($result, $departmentId);
+    }
+
+    // Huỷ các hồ sơ đã chọn, trả vị trí về trống. Cùng một lý do cho cả nhóm.
+    public function disposeDocuments(Request $request)
+    {
+        $userId = session('user')['userId'];
+        if (!user_has_permission($userId, 'document.dispose', 'boolean')) {
+            return response()->json(['message' => 'Bạn không có quyền huỷ hồ sơ.'], 403);
+        }
+
+        $departmentId = session('user')['selected_department_id'];
+        $actor = session('user')['fullName'] ?? 'NA';
+        $documentIds = $this->idList($request->input('document_ids'));
+        $reason = trim((string) $request->input('reason'));
+
+        if ($error = $this->checkBatch($documentIds)) {
+            return response()->json(['message' => $error], 422);
+        }
+        if ($reason === '') {
+            return response()->json(['message' => 'Vui lòng nhập lý do huỷ hồ sơ.'], 422);
+        }
+
+        $result = DB::transaction(function () use ($departmentId, $actor, $userId, $documentIds, $reason) {
+            $documents = DB::table('documents')
+                ->whereIn('id', $documentIds)
+                ->where('department_id', $departmentId)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($documents->count() !== count($documentIds)) {
+                return ['status' => 404, 'message' => 'Có hồ sơ không tồn tại hoặc đã bị huỷ.'];
+            }
+            if ($denied = ShelfAccess::denied($userId, $documents->pluck('location_id')->all())) {
+                return ['status' => 403, 'message' => $denied];
+            }
+
+            $disposed = [];
+            foreach ($documents as $document) {
+                DocumentDisposal::dispose($document, $reason, $actor);
+                $disposed[] = ['id' => (int) $document->id, 'code' => $document->code, 'location_id' => (int) $document->location_id];
+            }
+
+            return ['status' => 200, 'documents' => $disposed];
+        });
+
+        return $this->batchResponse($result, $departmentId);
+    }
+
+    private function batchResponse(array $result, $departmentId)
+    {
+        $status = $result['status'];
+        unset($result['status']);
+
+        if ($status !== 200) {
+            return response()->json(['ok' => false] + $result, $status);
+        }
+
+        return response()->json(['ok' => true, 'relabel_count' => $this->relabelQuery($departmentId)->count()] + $result);
+    }
+
+    // Nhận "1,2,3" hoặc mảng; bỏ trùng và giá trị rỗng.
+    private function idList($value): array
+    {
+        $items = is_array($value) ? $value : explode(',', (string) $value);
+
+        return array_values(array_unique(array_filter(array_map('intval', $items))));
+    }
+
+    private function checkBatch(array $ids): ?string
+    {
+        return !$ids || count($ids) > self::MAX_BATCH
+            ? 'Số ô thao tác mỗi lần phải từ 1 đến ' . self::MAX_BATCH . '.'
+            : null;
+    }
+
+    private function checkDate($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && strtotime($value) !== false ? null : 'Ngày hết hạn không hợp lệ.';
+    }
+
+    // Chỉ giữ loại tài liệu có thật, để id lạ từ client không lọt vào bảng liên kết.
+    private function typeIds($value): array
+    {
+        $ids = $this->idList($value);
+
+        return $ids ? DB::table('document_types')->whereIn('id', $ids)->pluck('id')->map(fn ($id) => (int) $id)->all() : [];
+    }
+
+    private function syncTypes($documentId, array $typeIds): void
+    {
+        if (!$typeIds) {
+            return;
+        }
+
+        DB::table('document_has_types')->insert(array_map(fn ($typeId) => [
+            'document_id'      => $documentId,
+            'document_type_id' => $typeId,
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ], $typeIds));
+    }
+
+    // Lưu tệp đính kèm giống trang Quản lý lưu trữ; nhiều hồ sơ tạo cùng lúc dùng chung một tệp.
+    private function storeAttachment(Request $request): ?string
+    {
+        if (!$request->hasFile('file_attachment')) {
+            return null;
+        }
+
+        $file = $request->file('file_attachment');
+        $folderPath = 'uploads/documents/' . date('Y/m');
+        $destinationPath = public_path($folderPath);
+
+        if (!File::exists($destinationPath)) {
+            File::makeDirectory($destinationPath, 0755, true);
+        }
+
+        $fileName = time() . '_' . $file->getClientOriginalName();
+        $file->move($destinationPath, $fileName);
+
+        return $folderPath . '/' . $fileName;
+    }
+
+    private function isRestricted(object $doc): bool
+    {
+        $viewer = session('user')['fullName'] ?? null;
+
+        return $doc->is_private && $doc->owner !== $viewer && $doc->created_by !== $viewer;
     }
 
     // Hồ sơ có vị trí hiện tại khác vị trí in trên nhãn, tức là cần in lại nhãn.
