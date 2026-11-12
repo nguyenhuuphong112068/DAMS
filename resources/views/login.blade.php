@@ -238,6 +238,44 @@
             text-decoration: underline;
         }
 
+        /* Nút Tra cứu hồ sơ (trang công khai, không cần đăng nhập) - góc trên phải */
+        .btn-lookup {
+            position: fixed;
+            top: 18px;
+            right: 22px;
+            z-index: 5;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff;
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-decoration: none;
+            backdrop-filter: blur(6px);
+            transition: all 0.25s ease;
+        }
+
+        .btn-lookup i {
+            color: var(--accent-gold);
+        }
+
+        .btn-lookup:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.16);
+            border-color: rgba(205, 199, 23, 0.6);
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 575.98px) {
+            .btn-lookup span {
+                display: none;
+            }
+        }
+
         @media (max-width: 768px) {
             .auth-shell {
                 flex-direction: column;
@@ -261,6 +299,11 @@
 </head>
 
 <body>
+
+    <a href="{{ route('publicDocumentLookup') }}" class="btn-lookup"
+        title="Tra cứu hồ sơ đang nằm ở kho / kệ / tầng / vị trí nào (không cần đăng nhập)">
+        <i class="bi bi-search"></i><span>Tra cứu vị trí hồ sơ</span>
+    </a>
 
     <div class="auth-shell">
         <div class="brand-panel">

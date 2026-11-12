@@ -6,6 +6,10 @@
                 <input type="search" id="sc-filter" class="form-control form-control-sm" placeholder="Lọc..." hidden>
                 <span id="sc-total" class="sc-total" hidden></span>
                 <span id="sc-dirty" class="sc-dirty" hidden>Có thay đổi chưa lưu</span>
+                <button type="button" id="sc-layout-btn" class="btn btn-sm btn-outline-primary" hidden
+                    title="Vẽ hình dạng kho, đặt các kệ vào đúng chỗ trong kho, xem cả kho ở 3D">
+                    <i class="fas fa-vector-square mr-1"></i> Mặt bằng kho
+                </button>
                 <button type="button" id="sc-add" class="btn btn-sm btn-outline-primary"></button>
                 <button type="button" id="sc-reset" class="btn btn-sm btn-outline-secondary" hidden>Hoàn tác</button>
                 <button type="button" id="sc-save" class="btn btn-sm btn-primary" hidden>
@@ -43,6 +47,9 @@
 
             <div id="sc-warehouses" class="sc-cards" hidden></div>
             <div id="sc-shelves" class="sc-cards" hidden></div>
+
+            {{-- Mặt bằng kho: hình dạng phòng, cửa, vị trí đặt các kệ + 3D cả kho --}}
+            @include('pages.StorageLocation.Structure.layout')
 
             <div id="sc-legend" class="sc-legend sc-legend-top" hidden>
                 <span><i class="sc-swatch is-busy"></i> Có hồ sơ</span>
@@ -772,6 +779,9 @@
     "apply": "{{ route('pages.storageLocation.structure.apply') }}",
     "applyMany": "{{ route('pages.storageLocation.structure.applyMany') }}",
     "previewCodes": "{{ route('pages.storageLocation.structure.previewCodes') }}",
+    "layout": "{{ route('pages.storageLocation.structure.layout') }}",
+    "saveLayout": "{{ route('pages.storageLocation.structure.saveLayout') }}",
+    "canUpdate": @json(user_has_permission(session('user')['userId'], 'warehouse.update', 'boolean')),
     "maxTiers": {{ $maxTiers }},
     "maxLocations": {{ $maxLocations }},
     "maxBatchShelves": {{ $maxBatchShelves }},
@@ -813,8 +823,11 @@
     var elSave = byId('sc-save');
     var elReset = byId('sc-reset');
     var elDirty = byId('sc-dirty');
+    var elLayoutBtn = byId('sc-layout-btn');
+    var elLayout = byId('sc-layout');
 
     // view: 'warehouses' | 'shelves' | 'create' (nhiều kệ mới, mỗi kệ một khối) | 'editor' (sửa một kệ có sẵn)
+    //       | 'layout' (mặt bằng kho - Structure/layout.blade.php)
     var state = {
         view: 'warehouses',
         warehouses: [], shelves: [],
@@ -932,18 +945,20 @@
 
         elWarehouses.hidden = view !== 'warehouses';
         elShelves.hidden = view !== 'shelves';
+        elLayout.hidden = view !== 'layout';
+        elLayoutBtn.hidden = view !== 'shelves';
         elBlocks.hidden = !isGrid;
         elLegend.hidden = !isGrid;
         elAddMore.hidden = view !== 'create';
         elTotal.hidden = view !== 'create';
         elSave.hidden = !isGrid;
         elReset.hidden = !isGrid;
-        elFilter.hidden = isGrid;
+        elFilter.hidden = isGrid || view === 'layout';
         elFilter.value = '';
         elNote.hidden = true;
 
         // Nút thêm ở đầu trang vẫn giữ khi đang tạo kệ: bấm tiếp là thêm một khối nữa bên dưới.
-        elAdd.hidden = view === 'editor';
+        elAdd.hidden = view === 'editor' || view === 'layout';
         elAdd.innerHTML = '<i class="fas fa-plus mr-1"></i> '
             + (view === 'warehouses' ? 'Kho mới' : view === 'create' ? 'Thêm kệ' : 'Kệ mới');
 
@@ -965,6 +980,11 @@
             parts.push('<button type="button" class="sc-crumb'
                 + (state.view === 'shelves' ? ' is-current' : '') + '" data-go="shelves">'
                 + esc(state.warehouse.code) + ' — ' + esc(state.warehouse.name) + '</button>');
+        }
+
+        if (state.view === 'layout') {
+            parts.push('<span class="sc-crumb-sep">/</span>');
+            parts.push('<button type="button" class="sc-crumb is-current"><i class="fas fa-vector-square mr-1"></i>Mặt bằng</button>');
         }
 
         if (state.view === 'create' || state.view === 'editor') {
@@ -997,6 +1017,20 @@
     elFilter.addEventListener('input', function () {
         if (state.view === 'warehouses') renderWarehouses();
         else if (state.view === 'shelves') renderShelves();
+    });
+
+    // Mặt bằng kho (Structure/layout): vẽ hình dạng kho, đặt các kệ vào kho, xem cả kho ở 3D
+    elLayoutBtn.addEventListener('click', function () {
+        if (!state.warehouse || !window.FloorPlan) return;
+        if (state.dirty && !confirm('Bỏ các thay đổi chưa lưu?')) return;
+        show('layout');
+        window.FloorPlan.open(state.warehouse, {
+            onDirty: setDirty,
+            onOpenShelf: function (id) {
+                if (state.dirty && !confirm('Mặt bằng còn thay đổi chưa lưu. Bỏ thay đổi và mở cấu trúc kệ?')) return;
+                loadShelf(id);
+            }
+        });
     });
 
     /* ---------- cấp 1: kho ---------- */

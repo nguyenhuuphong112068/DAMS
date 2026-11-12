@@ -2,6 +2,7 @@
 use App\Http\Controllers\Pages\MaterData\DepartmentController;
 use App\Http\Controllers\Pages\MaterData\StatusController;
 use App\Http\Controllers\Pages\MaterData\DocumentTypeController;
+use App\Http\Controllers\Pages\StorageLocation\FloorPlanController;
 use App\Http\Controllers\Pages\StorageLocation\RoomController;
 use App\Http\Controllers\Pages\StorageLocation\StorageAssignmentController;
 use App\Http\Controllers\Pages\StorageLocation\StructureController;
@@ -62,6 +63,11 @@ Route::prefix('/storageLocation')
             Route::post('apply', 'apply')->name('apply');
             Route::get('previewCodes', 'previewCodes')->name('previewCodes');
             Route::post('applyMany', 'applyMany')->name('applyMany');
+        });
+        // Mặt bằng kho: hình dạng phòng, cửa ra vào, vị trí đặt các kệ trong phòng (xem cả kho ở 3D)
+        Route::prefix('/structure')->name('structure.')->controller(FloorPlanController::class)->group(function () {
+            Route::get('layout', 'layout')->name('layout');
+            Route::post('layout', 'saveLayout')->name('saveLayout');
         });
         // Giao Kho/Kệ/Tầng/Vị Trí cho người có vai trò "Quản lý kệ"
         Route::prefix('/assignment')->name('assignment.')->controller(StorageAssignmentController::class)->group(function () {

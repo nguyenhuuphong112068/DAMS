@@ -36,6 +36,15 @@
             :root {
                   --primary-navy: #003A4F;
                   --accent-gold: #CDC717;
+                  /* Bộ màu cho sơ đồ 3D / mặt bằng kho (pages/shared/shelf3d, zone3d - port từ WMS) */
+                  --primary: #0A5570;
+                  --primary-dark: #003A4F;
+                  --primary-light: #2B7D99;
+                  --primary-lighter: #93BFCE;
+                  --primary-soft: #E6F1F5;
+                  --primary-rgb: 10, 85, 112;
+                  --accent: #17B8D4;
+                  --text-muted: #6B7A90;
                   --bg-neutral: #F8F9FA;
                   --text-main: #2D3748;
                   --border-radius-lg: 12px;
