@@ -33,8 +33,10 @@
             </div>
 
             <div class="card-body">
-                <div id="wm-legend" class="wm-legend" aria-label="Chú giải"></div>
-                <div id="wm-canvas" class="wm-canvas" aria-live="polite"></div>
+                {{-- Thẻ | 3D | Mặt bằng (pages/shared/zoneViews): sơ đồ ô hiện tại là kiểu "Thẻ" --}}
+                <div class="mz-head zv-head"><div class="mz-tools"></div></div>
+                <div id="wm-legend" class="wm-legend mz-body" aria-label="Chú giải"></div>
+                <div id="wm-canvas" class="wm-canvas mz-body" aria-live="polite"></div>
             </div>
         </div>
 
@@ -686,6 +688,8 @@
 </style>
 @endverbatim
 
+@include('pages.shared.zoneViews')
+
 <script type="application/json" id="wm-config">
 {
     "summary": "{{ route('pages.storageLocation.map.summary') }}",
@@ -1327,7 +1331,19 @@
     /* ---------- Điều hướng ---------- */
 
     // refresh: vẽ lại tại chỗ sau khi chuyển hồ sơ, không xoá trắng khung để trang không nhảy cuộn.
+    // Thẻ | 3D | Mặt bằng: 3D / Mặt bằng mở đúng kho / kệ đang xem, bấm thùng hồ sơ = bấm ô (cửa sổ chi tiết vị trí)
+    var zoneViews = window.damsZoneViews ? window.damsZoneViews.mount(document.getElementById('wm-pane-map'), {
+        modeKey: 'dams.map.zoneView',
+        focus: function () { return { warehouseId: state.warehouseId, shelfId: state.shelfId }; },
+        open: function (key) { loadCell(Number(String(key).slice(1))); }
+    }) : null;
+
     function load(refresh) {
+        // Vẽ lại sau khi chuyển / huỷ hồ sơ thì sơ đồ 3D cũng phải tải lại; đổi kho / kệ thì 3D theo cùng chỗ.
+        if (zoneViews) {
+            if (refresh) zoneViews.invalidate();
+            else zoneViews.refocus();
+        }
         renderCrumbs();
         if (!refresh) {
             canvas.innerHTML = '<p class="wm-empty-note">Đang tải sơ đồ...</p>';
@@ -1438,6 +1454,7 @@
     // Đi thẳng tới ô đã tìm thấy, dùng chung cho bấm chọn và tự nhảy khi chỉ có 1 kết quả.
     function goToHit(hit) {
         searchResults.hidden = true;
+        if (zoneViews) zoneViews.showCards();
         searchInput.value = '';
 
         state.warehouseId = hit.warehouse_id;
@@ -2519,6 +2536,7 @@
 
     resetPanel();
     load();
+    if (zoneViews) zoneViews.start();
     loadRelabel();
 })();
 </script>

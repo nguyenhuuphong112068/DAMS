@@ -31,7 +31,9 @@
                     <div id="sa-actions" class="sa-actions"></div>
                 </div>
                 <div class="card-body">
-                    <div class="sa-hintbar">
+                    {{-- Thẻ | 3D | Mặt bằng (pages/shared/zoneViews): lưới phân công hiện tại là kiểu "Thẻ" --}}
+                    <div class="mz-head zv-head"><div class="mz-tools"></div></div>
+                    <div class="sa-hintbar mz-body">
                         <p id="sa-hint" class="sa-hint"></p>
                         <div id="sa-legend" class="sa-legend">
                             <span><i class="sa-swatch is-on"></i> Người đang chọn phụ trách</span>
@@ -40,7 +42,7 @@
                             <span data-grid-only><i class="sa-swatch is-off"></i> Đang khoá</span>
                         </div>
                     </div>
-                    <div id="sa-view" class="sa-view"></div>
+                    <div id="sa-view" class="sa-view mz-body"></div>
                 </div>
                 <div class="sa-busy"><i class="fas fa-circle-notch fa-spin"></i></div>
             </section>
@@ -439,6 +441,7 @@
 </style>
 
 <script src="{{ asset('js/sweetalert2.all.min.js') }}"></script>
+@include('pages.shared.zoneViews')
 
 @if ($managers->isNotEmpty())
     <script type="application/json" id="sa-config">
@@ -810,9 +813,16 @@
                 render();
             }
 
+            // Thẻ | 3D | Mặt bằng: 3D / Mặt bằng mở đúng kho / kệ đang xem ở lưới phân công
+            const zoneViews = window.damsZoneViews ? window.damsZoneViews.mount(main, {
+                modeKey: 'dams.assignment.zoneView',
+                focus: () => ({ warehouseId: state.warehouseId, shelfId: state.shelfId })
+            }) : null;
+
             async function go(changes) {
                 if (state.busy) return;
                 Object.assign(state, changes);
+                if (zoneViews) zoneViews.refocus();
                 setBusy(true);
                 try {
                     await Promise.all([loadView(), changes.userId ? loadSummary() : null]);
@@ -1069,6 +1079,7 @@
 
             readHash();
             go({ userId: state.userId });
+            if (zoneViews) zoneViews.start();
         })();
     </script>
 @endif

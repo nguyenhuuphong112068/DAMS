@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Pages\StorageLocation;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pages\AuditTrail\AuditTrialController;
+use App\StorageLocation\ZoneView;
 use App\Support\RoomLayout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -112,6 +113,20 @@ class FloorPlanController extends Controller
             'shelves' => $out->values(),
             'limits'  => self::limits(),
         ]);
+    }
+
+    /**
+     * Dữ liệu sơ đồ "Thẻ | 3D | Mặt bằng" (pages/shared/zoneViews) của bộ phận đang chọn - dùng cho Cấu Trúc Kho,
+     * Sơ Đồ Kho, Phân Chia Kệ Quản Lý: khung kho / kệ / tầng + mọi ô đang có hồ sơ kèm chi tiết hồ sơ.
+     */
+    public function zoneView()
+    {
+        $departmentId = $this->departmentId();
+
+        return response()->json([
+            'zones' => ZoneView::zones($departmentId),
+            'nodes' => (object) ZoneView::nodes($departmentId, true),
+        ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     /**

@@ -367,6 +367,47 @@
         margin-top: 1px;
     }
 
+    /* kho chưa khai mặt bằng: thông báo + nút sang 3D từng kệ (nằm trong .w3d-empty vốn không nhận chuột) */
+    .mz-room-none {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        max-width: 420px;
+        padding: 0 16px;
+        text-align: center;
+        color: #64748b;
+    }
+
+    .mz-room-none > i {
+        font-size: 2.2rem;
+        color: var(--primary-lighter);
+    }
+
+    .mz-room-none b {
+        font-size: 1rem;
+        color: var(--primary-dark);
+    }
+
+    .mz-room-go3d {
+        pointer-events: auto;
+        margin-top: 6px;
+        border: none;
+        border-radius: var(--border-radius-md);
+        background: var(--primary);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 8px 18px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .mz-room-go3d:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+
     .mz-plan-box {
         margin-top: 10px;
         padding-top: 10px;
@@ -795,25 +836,9 @@
                         });
                     });
                 } else {
-                    // Kho chưa khai mặt bằng: xếp các kệ thành nhiều hàng (mỗi hàng tối đa ~24 m) cho vừa khung nhìn
+                    // Kho chưa khai mặt bằng: KHÔNG dựng phòng ảo (vị trí kệ đoán ra dễ gây hiểu nhầm) - khung Mặt bằng
+                    // chỉ báo chưa khai và mời xem 3D từng kệ; danh sách bên trái vẫn đếm vị trí khớp.
                     room.virtual = true;
-                    var x = 0.5, y = 0.5, rowDepth = 0.4, maxX = 0;
-                    room.shelves.forEach(function(shelf) {
-                        var size = defaultSize(shelf);
-                        if (x > 0.5 && x + size.width > 24) {
-                            x = 0.5;
-                            y += rowDepth + 1.2;
-                            rowDepth = 0.4;
-                        }
-                        room.items.push({ shelf: shelf, x: x + size.width / 2, y: y + size.depth / 2, width: size.width, depth: size.depth, rotation: 0 });
-                        x += size.width + 0.6;
-                        maxX = Math.max(maxX, x);
-                        rowDepth = Math.max(rowDepth, size.depth);
-                    });
-                    room.width = Math.max(Math.ceil(maxX - 0.1), 4);
-                    room.depth = Math.max(Math.ceil(y + rowDepth + 1.5), 3);
-                    room.polygon = [[0, 0], [room.width, 0], [room.width, room.depth], [0, room.depth]];
-                    room.door = null;
                 }
                 return room;
             }).sort(function(a, b) {
@@ -876,7 +901,7 @@
             var allCells = ctx.codes && room.cells <= MAX_ROOM_CELLS;
             title.innerHTML = '<i class="fas fa-vector-square"></i> ' + esc(room.wh.name || 'Kho') +
                 (room.wh.code ? '<span class="tag">' + esc(room.wh.code) + '</span>' : '') +
-                '<span class="tag">' + (room.virtual ? 'Chưa khai mặt bằng' : 'Kho ' + room.width + ' × ' + room.depth + ' m' +
+                '<span class="tag' + (room.virtual ? ' is-alert' : '') + '">' + (room.virtual ? 'Chưa khai mặt bằng' : 'Kho ' + room.width + ' × ' + room.depth + ' m' +
                     (room.shaped ? ' · ' + room.polygon.length + ' góc' : '')) + '</span>' +
                 '<span class="tag">' + room.shelves.length + ' kệ</span>' +
                 '<span class="tag">' + st.filled + '/' + st.locations + ' vị trí có hồ sơ</span>' +
@@ -885,6 +910,21 @@
                 (ctx.codes && !allCells ? '<span class="tag is-alert">Kho quá nhiều ô - chỉ vẽ ô có hồ sơ</span>' : '');
 
             fitHeight(ctx);
+
+            if (room.virtual) {
+                ctx.stage.classList.remove('is-room', 'is-fp');
+                DamsShelf3d.render(ctx.stage, {
+                    columns: [],
+                    empty: '<div class="mz-room-none"><i class="fas fa-vector-square"></i>' +
+                        '<b>Kho này chưa khai mặt bằng</b>' +
+                        '<span>Mặt bằng được vẽ ở Vị Trí Lưu Trữ → Cấu Trúc Kho → Mặt bằng kho.' +
+                        (f.active ? ' Kho có ' + st.hits + ' vị trí khớp tra cứu.' : '') + '</span>' +
+                        '<button type="button" class="mz-room-go3d" data-z3d-go3d="' + esc(room.key) + '">' +
+                        '<i class="fas fa-cube mr-1"></i>Xem 3D từng kệ của kho này</button></div>'
+                });
+                return;
+            }
+
             var seeking = f.q !== '' || f.k !== '';
             DamsShelf3d.renderRoom(ctx.stage, {
                 width: room.width, depth: room.depth, polygon: room.polygon, door: room.door, tierMetre: 0.4,
@@ -979,8 +1019,9 @@
 
             var width = Math.max(list.clientWidth - 24, 180);
             html += '<div class="mz-plan-box"><div class="mz-plan-head"><i class="fas fa-vector-square mr-1"></i>Mặt bằng ' + esc(room.wh.code || room.wh.name || '') + '</div>' +
-                planMarkup(ctx, room, stats[room.key], f, width) +
-                (room.virtual ? '<div class="mz-plan-note is-warn">Kho chưa khai mặt bằng ở Vị Trí Lưu Trữ → Cấu Trúc Kho: đang xếp tạm các kệ thành hàng.</div>' : '') +
+                (room.virtual
+                    ? '<div class="mz-plan-note is-warn">Kho chưa khai mặt bằng ở Vị Trí Lưu Trữ → Cấu Trúc Kho → Mặt bằng kho.</div>'
+                    : planMarkup(ctx, room, stats[room.key], f, width)) +
                 (room.unplaced.length ? '<div class="mz-plan-note is-warn">Chưa đặt trên mặt bằng: ' +
                     room.unplaced.map(function(shelf) { return esc(shelf.code || shelf.name); }).join(', ') + '</div>' : '') +
                 '</div>';
@@ -1041,9 +1082,26 @@
             }
         }
 
-        function setMode(ctx, mode) {
+        // focus = { warehouseId, shelfId }: kệ có trong sơ đồ thì chọn kệ đó (và kho của nó), không thì chọn kho.
+        function applyFocus(ctx, focus) {
+            if (!focus) return;
+            var shelf = focus.shelfId != null && ctx.shelves.find(function(s) { return String(s.id) === String(focus.shelfId); });
+            if (shelf) {
+                ctx.current = shelf.id;
+                ctx.room = shelf.warehouseKey;
+                return;
+            }
+            if (focus.warehouseId == null) return;
+            var key = String(focus.warehouseId);
+            if (ctx.rooms.some(function(room) { return room.key === key; })) ctx.room = key;
+            var own = ctx.shelves.find(function(s) { return s.warehouseKey === key; });
+            if (own) ctx.current = own.id;
+        }
+
+        function setMode(ctx, mode, keep) {
             ctx.mode = mode === '3d' || mode === 'room' ? mode : 'cards';
-            write(ctx.modeKey, ctx.mode);
+            // keep = trang tự đổi kiểu xem (vd. vào màn sửa kệ) - không ghi đè lựa chọn người dùng đã nhớ
+            if (!keep) write(ctx.modeKey, ctx.mode);
             ctx.root.classList.toggle('mz-mode-3d', ctx.mode !== 'cards');
             ctx.root.classList.toggle('mz-mode-room', ctx.mode === 'room');
             ctx.root.querySelectorAll('[data-mz-view]').forEach(function(btn) {
@@ -1185,6 +1243,9 @@
             ctx.current = first ? first.id : null;
             ctx.rooms = buildRooms(ctx);
             ctx.room = first ? first.warehouseKey : (ctx.rooms[0] ? ctx.rooms[0].key : null);
+            // Trang đang đứng ở kho / kệ nào thì 3D / Mặt bằng mở đúng kho / kệ đó
+            applyFocus(ctx, opts.focus);
+            root._z3dCtx = ctx;
 
             $root.on('click.z3d', '[data-mz-view]', function() {
                 setMode(ctx, this.getAttribute('data-mz-view'));
@@ -1207,6 +1268,15 @@
             $root.on('click.z3d', '[data-z3d-room]', function() {
                 ctx.room = this.getAttribute('data-z3d-room');
                 refresh(ctx);
+            });
+            // Kho chưa khai mặt bằng -> 3D từng kệ: mở kệ đầu tiên của kho có vị trí khớp (không có thì kệ đầu của kho)
+            $root.on('click.z3d', '[data-z3d-go3d]', function() {
+                var key = this.getAttribute('data-z3d-go3d');
+                var f = filterOf(root);
+                var own = ctx.shelves.filter(function(s) { return s.warehouseKey === key; });
+                var pick = (f.active && own.find(function(s) { return statOf(ctx, s, f).hits > 0; })) || own[0];
+                if (pick) ctx.current = pick.id;
+                setMode(ctx, '3d');
             });
             $root.on('dblclick.z3d', '[data-plan-shelf]', function() {
                 ctx.current = this.getAttribute('data-plan-shelf');
@@ -1255,7 +1325,23 @@
             setMode(ctx, opts.mode || read(ctx.modeKey, opts.defaultMode || 'cards'));
         }
 
-        window.damsZone3d = { init: init };
+        window.damsZone3d = {
+            init: init,
+            // Trang đổi kho / kệ đang xem ở chế độ Thẻ -> 3D / Mặt bằng theo cùng chỗ
+            focus: function(root, focus) {
+                var ctx = root && root._z3dCtx;
+                if (!ctx) return;
+                applyFocus(ctx, focus);
+                refresh(ctx);
+            },
+            setMode: function(root, mode, keep) {
+                var ctx = root && root._z3dCtx;
+                if (ctx) setMode(ctx, mode, keep);
+            },
+            mode: function(root) {
+                return root && root._z3dCtx ? root._z3dCtx.mode : 'cards';
+            }
+        };
     })();
 </script>
 @endonce

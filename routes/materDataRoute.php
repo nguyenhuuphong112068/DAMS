@@ -69,6 +69,8 @@ Route::prefix('/storageLocation')
             Route::get('layout', 'layout')->name('layout');
             Route::post('layout', 'saveLayout')->name('saveLayout');
         });
+        // Dữ liệu sơ đồ Thẻ | 3D | Mặt bằng dùng chung cho các màn Vị Trí Lưu Trữ
+        Route::get('/zoneView', [FloorPlanController::class, 'zoneView'])->name('zoneView');
         // Giao Kho/Kệ/Tầng/Vị Trí cho người có vai trò "Quản lý kệ"
         Route::prefix('/assignment')->name('assignment.')->controller(StorageAssignmentController::class)->group(function () {
             Route::get('', 'index')->name('list');

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
-use App\Support\RoomLayout;
+use App\StorageLocation\ZoneView;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,9 +25,6 @@ class PublicDocumentLookupController extends Controller
 {
     /** Số hồ sơ khớp tối đa trả về một lượt tra cứu. */
     public const MAX_MATCHES = 300;
-
-    /** Hạn lưu trữ còn ít hơn số ngày này thì vị trí tô "sắp hết hạn". */
-    private const WARN_DAYS = 30;
 
     public function index(Request $request)
     {
@@ -58,28 +55,11 @@ class PublicDocumentLookupController extends Controller
 
     private function lookup(int $departmentId, string $keyword): array
     {
-        $zones = $this->zones($departmentId);
+        $zones = ZoneView::zones($departmentId);
         $today = now()->startOfDay();
 
         // Mọi ô đang có hồ sơ của bộ phận (để vẽ thùng trên 3D / Mặt bằng) - chỉ toạ độ + tình trạng hạn lưu trữ
-        $occupied = DB::table('documents as d')
-            ->join('locations as l', 'l.id', '=', 'd.location_id')
-            ->where('l.department_id', $departmentId)
-            ->where('l.status_id', 1)
-            ->whereNotNull('l.tier_id')
-            ->whereNotNull('l.position')
-            ->get(['l.id', 'l.tier_id', 'l.position', 'd.expired_date']);
-
-        $nodes = [];
-        foreach ($occupied as $row) {
-            $key = 'L' . $row->id;
-            $state = $this->state($row->expired_date, $today);
-            // Dữ liệu cũ có thể còn ô dính nhiều hồ sơ: giữ tình trạng xấu nhất
-            if (isset($nodes[$key]) && $this->rank($nodes[$key]['s']) >= $this->rank($state)) {
-                continue;
-            }
-            $nodes[$key] = ['t' => (int) $row->tier_id, 'p' => (int) $row->position, 's' => $state];
-        }
+        $nodes = ZoneView::nodes($departmentId, false);
 
         $matches = $keyword === '' ? collect() : $this->matches($departmentId, $keyword);
         $truncated = $matches->count() > self::MAX_MATCHES;
@@ -112,7 +92,7 @@ class PublicDocumentLookupController extends Controller
         foreach ($located as $key => $loc) {
             $row = $loc['row'];
             $path = $this->pathOf($row);
-            $state = collect($loc['items'])->reduce(fn ($worst, $x) => $this->rank($x['state']) > $this->rank($worst) ? $x['state'] : $worst, 'ok');
+            $state = collect($loc['items'])->reduce(fn ($worst, $x) => ZoneView::rank($x['state']) > ZoneView::rank($worst) ? $x['state'] : $worst, 'ok');
             $search = mb_strtolower($row->location_code . ' ' . $path . ' ' . collect($loc['items'])
                 ->map(fn ($x) => $x['code'] . ' ' . $x['name'] . ' ' . $x['owner'])->implode(' '));
 
@@ -185,65 +165,6 @@ class PublicDocumentLookupController extends Controller
     }
 
     /**
-     * Khung kho / kệ / tầng của bộ phận cho sơ đồ 3D / Mặt bằng: kho kèm mặt bằng (RoomLayout), kệ kèm vị trí đặt,
-     * tầng kèm số ô xa nhất (max). Chỉ tính kệ / tầng / ô đang dùng.
-     */
-    private function zones(int $departmentId): array
-    {
-        $warehouses = DB::table('warehouses')
-            ->where('department_id', $departmentId)
-            ->where('active', 1)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name', 'layout_width', 'layout_depth', 'layout_polygon', 'layout_door']);
-
-        $shelves = DB::table('shelves')
-            ->whereIn('warehouse_id', $warehouses->pluck('id'))
-            ->where('department_id', $departmentId)
-            ->where('status_id', 1)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name', 'warehouse_id', 'layout_x', 'layout_y', 'layout_width', 'layout_depth', 'layout_rotation']);
-
-        $tiers = DB::table('tiers as t')
-            ->join('locations as l', function ($join) {
-                $join->on('l.tier_id', '=', 't.id')->where('l.status_id', 1)->whereNotNull('l.position');
-            })
-            ->whereIn('t.shelf_id', $shelves->pluck('id'))
-            ->where('t.status_id', 1)
-            ->whereNotNull('t.position')
-            ->groupBy('t.id', 't.shelf_id', 't.code', 't.name', 't.position')
-            ->orderBy('t.position')
-            ->get(['t.id', 't.shelf_id', 't.code', 't.name', 't.position', DB::raw('MAX(l.position) as max')]);
-
-        return [
-            'warehouses' => RoomLayout::attach($warehouses)->map(fn ($w) => [
-                'id'          => (int) $w->id,
-                'code'        => $w->code,
-                'name'        => $w->name,
-                'layout_room' => $w->layout_room,
-            ])->values(),
-            'shelves' => $shelves->map(fn ($s) => [
-                'id'              => (int) $s->id,
-                'code'            => $s->code,
-                'name'            => $s->name,
-                'warehouse_id'    => (int) $s->warehouse_id,
-                'layout_x'        => $s->layout_x,
-                'layout_y'        => $s->layout_y,
-                'layout_width'    => $s->layout_width,
-                'layout_depth'    => $s->layout_depth,
-                'layout_rotation' => $s->layout_rotation,
-            ])->values(),
-            'tiers' => $tiers->map(fn ($t) => [
-                'id'       => (int) $t->id,
-                'shelf_id' => (int) $t->shelf_id,
-                'code'     => $t->code,
-                'name'     => $t->name,
-                'position' => (int) $t->position,
-                'max'      => (int) $t->max,
-            ])->values(),
-        ];
-    }
-
-    /**
      * Hồ sơ của bộ phận khớp từ khoá (không phân biệt dấu / hoa thường theo collation CSDL): mã hồ sơ, tên,
      * người sở hữu, mã vị trí. Hồ sơ hạn chế chỉ khớp theo mã hồ sơ / mã vị trí.
      */
@@ -288,7 +209,7 @@ class PublicDocumentLookupController extends Controller
             'types'   => $private ? '' : $types,
             'private' => $private,
             'expiry'  => $row->expired_date ? Carbon::parse($row->expired_date)->format('d/m/Y') : '—',
-            'state'   => $this->state($row->expired_date, $today),
+            'state'   => ZoneView::state($row->expired_date, $today),
         ];
     }
 
@@ -296,26 +217,5 @@ class PublicDocumentLookupController extends Controller
     {
         return ($row->warehouse_name ?: 'Chưa gán kho') . ' / ' . ($row->shelf_name ?: 'Chưa gán kệ') . ' / '
             . ($row->tier_name ?: 'Chưa gán tầng');
-    }
-
-    /** ok = còn hạn / không hạn, warn = hết hạn lưu trữ trong WARN_DAYS ngày tới, danger = đã quá hạn lưu trữ. */
-    private function state($expiredDate, Carbon $today): string
-    {
-        if (!$expiredDate) {
-            return 'ok';
-        }
-
-        $expiry = Carbon::parse($expiredDate)->startOfDay();
-
-        if ($expiry->lt($today)) {
-            return 'danger';
-        }
-
-        return $today->diffInDays($expiry) <= self::WARN_DAYS ? 'warn' : 'ok';
-    }
-
-    private function rank(string $state): int
-    {
-        return ['ok' => 0, 'warn' => 1, 'danger' => 2][$state] ?? 0;
     }
 }

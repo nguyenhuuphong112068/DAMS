@@ -19,6 +19,9 @@
         </div>
 
         <div class="card-body">
+            {{-- Thẻ | 3D | Mặt bằng (pages/shared/zoneViews) - chỉ ở danh sách kho / kệ --}}
+            <div class="mz-head zv-head"><div class="mz-tools"></div></div>
+
             <p id="sc-note" class="sc-note" hidden></p>
 
             <div id="sc-wh-form" class="sc-panel" hidden>
@@ -45,8 +48,8 @@
                 </div>
             </div>
 
-            <div id="sc-warehouses" class="sc-cards" hidden></div>
-            <div id="sc-shelves" class="sc-cards" hidden></div>
+            <div id="sc-warehouses" class="sc-cards mz-body" hidden></div>
+            <div id="sc-shelves" class="sc-cards mz-body" hidden></div>
 
             {{-- Mặt bằng kho: hình dạng phòng, cửa, vị trí đặt các kệ + 3D cả kho --}}
             @include('pages.StorageLocation.Structure.layout')
@@ -553,78 +556,6 @@
         color: #1b3a5c;
     }
 
-    .sc-picker {
-        margin-bottom: 16px;
-    }
-
-    .sc-picker-title {
-        font-size: 13px;
-        color: #495057;
-        margin-bottom: 8px;
-    }
-
-    .sc-picker-grid {
-        display: grid;
-        gap: 2px;
-        grid-template-columns: repeat(var(--cols), 13px);
-        width: max-content;
-        padding: 6px;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        background: #fff;
-        overflow-x: auto;
-        max-width: 100%;
-    }
-
-    .sc-pcell {
-        width: 13px;
-        height: 13px;
-        border: 1px solid #ced4da;
-        border-radius: 2px;
-        background: #f8f9fa;
-        cursor: pointer;
-    }
-
-    .sc-pcell.is-on {
-        background: #7cb9ff;
-        border-color: #4a90d9;
-    }
-
-    .sc-picker-foot {
-        display: flex;
-        gap: 12px;
-        align-items: baseline;
-        margin-top: 8px;
-    }
-
-    .sc-picker-readout {
-        font-weight: 600;
-    }
-
-    .sc-picker-hint {
-        font-size: 12px;
-        color: #6c757d;
-    }
-
-    .sc-toolbar {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 12px;
-    }
-
-    .sc-bulk {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    .sc-bulk input {
-        width: 80px;
-    }
-
     .sc-legend {
         display: flex;
         gap: 14px;
@@ -765,9 +696,241 @@
         font-size: 13px;
         color: #495057;
     }
+
+    /* ---------- Thông số kệ (port từ Định Khu của WMS): Số tầng × Vị trí mỗi tầng + mô hình 3D ---------- */
+    .zs-spec {
+        margin-bottom: 14px;
+        padding: 14px 16px 16px;
+        border: 1px solid var(--primary-soft);
+        border-radius: var(--border-radius-lg);
+        background: var(--bg-neutral);
+    }
+
+    .zs-spec:empty {
+        display: none;
+    }
+
+    .zs-spec-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .zs-spec-title {
+        font-weight: 700;
+        color: var(--primary-dark);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .zs-spec-title i {
+        margin-right: 6px;
+        color: var(--accent-gold);
+    }
+
+    .zs-spec-formula {
+        font-size: 0.82rem;
+        color: #475569;
+        background: #fff;
+        border: 1px solid var(--primary-soft);
+        border-radius: 999px;
+        padding: 4px 14px;
+    }
+
+    .zs-spec-formula b {
+        color: var(--primary);
+    }
+
+    .zs-spec-formula .is-mixed {
+        color: #B45309;
+    }
+
+    /* Trái: 2 thẻ thông số · Phải: mô hình 3D */
+    .zs-spec-body {
+        display: grid;
+        grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: stretch;
+    }
+
+    .zs-spec-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 22px;
+        align-content: start;
+    }
+
+    .zs-spec-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 12px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--border-radius-lg);
+        background: #fff;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+
+    .zs-spec-card:hover,
+    .zs-spec-card:focus-within {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.12);
+        transform: translateY(-1px);
+    }
+
+    /* dấu × nối hai thẻ: kệ = số tầng × vị trí mỗi tầng */
+    .zs-spec-card:nth-child(even)::before {
+        content: '×';
+        position: absolute;
+        left: -17px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--primary-lighter);
+    }
+
+    .zs-spec-card.is-mixed {
+        border-style: dashed;
+        border-color: #F59E0B;
+    }
+
+    .zs-spec-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        align-self: stretch;
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+
+    .zs-spec-no {
+        flex: 0 0 auto;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--primary-soft);
+        color: var(--primary);
+        font-size: 0.72rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .zs-spec-label small {
+        display: block;
+        font-weight: 500;
+        color: #64748b;
+        font-size: 0.72rem;
+    }
+
+    .zs-fig {
+        width: 100%;
+        max-width: 170px;
+        height: 84px;
+    }
+
+    .zs-fig .f-post {
+        stroke: var(--primary-lighter);
+        stroke-width: 2;
+        stroke-linecap: round;
+        fill: none;
+    }
+
+    .zs-fig .f-box {
+        fill: var(--primary-soft);
+        stroke: var(--primary);
+        stroke-width: 1.2;
+    }
+
+    .zs-fig .f-box.is-first {
+        fill: var(--primary-lighter);
+    }
+
+    .zs-fig text {
+        font-size: 8px;
+        font-weight: 700;
+        fill: #64748b;
+        font-family: inherit;
+    }
+
+    .zs-fig text.is-first {
+        fill: var(--primary-dark);
+    }
+
+    .zs-spec-cap {
+        min-height: 18px;
+        font-size: 0.74rem;
+        color: #64748b;
+        text-align: center;
+    }
+
+    .zs-spec-cap b {
+        color: var(--primary-dark);
+    }
+
+    .zs-spec-card.is-mixed .zs-spec-cap {
+        color: #B45309;
+    }
+
+    /* Mô hình 3D (bộ vẽ chung pages/shared/shelf3d): màu ô cùng chú giải của lưới 2D */
+    .zs-spec .w3d {
+        min-height: 360px;
+    }
+
+    .zs-spec .w3d-cell.is-plan {
+        background: var(--primary-soft);
+        border-color: var(--primary);
+    }
+
+    .zs-spec .w3d-cell.is-free {
+        background: #EEF2F6;
+        border-color: #A9B4C2;
+    }
+
+    .zs-spec .w3d-cell.is-busy {
+        background: var(--primary);
+        border-color: var(--primary-dark);
+    }
+
+    .zs-spec .w3d-cell.is-off {
+        background: #CFD4D9;
+        border-color: #9AA1A8;
+    }
+
+    .zs-spec .w3d-cell.is-new {
+        background: #DCFCE7;
+        border-color: #16A34A;
+    }
+
+    @media (max-width: 1100px) {
+        .zs-spec-body {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    @media (max-width: 480px) {
+        .zs-spec-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .zs-spec-card::before {
+            display: none;
+        }
+    }
 </style>
 
 <script src="{{ asset('js/sweetalert2.all.min.js') }}"></script>
+
+@include('pages.shared.zoneViews')
 
 <script type="application/json" id="sc-config">
 {
@@ -825,6 +988,13 @@
     var elDirty = byId('sc-dirty');
     var elLayoutBtn = byId('sc-layout-btn');
     var elLayout = byId('sc-layout');
+
+    // Thẻ | 3D | Mặt bằng của danh sách kho / kệ: 3D / Mặt bằng mở đúng kho đang xem.
+    // (Nút "Mặt bằng kho" ở đầu trang vẫn là nơi VẼ mặt bằng; kiểu xem "Mặt bằng" ở đây chỉ để xem.)
+    var zoneViews = window.damsZoneViews ? window.damsZoneViews.mount(document.querySelector('.sc'), {
+        modeKey: 'dams.structure.zoneView',
+        focus: function () { return { warehouseId: state.warehouse ? state.warehouse.id : null }; }
+    }) : null;
 
     // view: 'warehouses' | 'shelves' | 'create' (nhiều kệ mới, mỗi kệ một khối) | 'editor' (sửa một kệ có sẵn)
     //       | 'layout' (mặt bằng kho - Structure/layout.blade.php)
@@ -940,6 +1110,13 @@
     /* ---------- điều hướng ---------- */
 
     function show(view) {
+        var listView = view === 'warehouses' || view === 'shelves';
+        if (zoneViews) {
+            zoneViews.enable(listView);
+            // Vừa sửa cấu trúc / mặt bằng xong quay lại danh sách: lần xem 3D sau tải dữ liệu mới
+            if (listView && state.view && state.view !== 'warehouses' && state.view !== 'shelves') zoneViews.invalidate();
+            else if (listView) zoneViews.refocus();
+        }
         state.view = view;
         var isGrid = view === 'create' || view === 'editor';
 
@@ -1246,7 +1423,12 @@
 
         elBlocks.appendChild(block.root);
         state.blocks.push(block);
-        block.openPicker();
+        // Kệ sau giống cấu trúc kệ phía trên; kệ đầu tiên theo thông số lần tạo trước (mặc định 6 tầng × 50 vị trí)
+        block.startWith(previous
+            ? previous.tiers.filter(function (tier) { return !tier.removed; })
+                .sort(function (a, b) { return a.position - b.position; })
+                .map(function (tier) { return tier.max; })
+            : specMaxes(lastSpec()));
         block.refreshPreview();
         renumberBlocks();
         blocksChanged();
@@ -1322,22 +1504,9 @@
             +   '</div>'
             +   (isNew ? '<div class="sc-preview"></div>' : '')
             + '</div>'
-            + '<div class="sc-picker" hidden>'
-            +   '<div class="sc-picker-title">Kéo chuột để chọn số tầng (dọc) và số vị trí mỗi tầng (ngang), rồi bấm để xác nhận.</div>'
-            +   '<div class="sc-picker-grid"></div>'
-            +   '<div class="sc-picker-foot">'
-            +     '<span class="sc-picker-readout">Chưa chọn</span>'
-            +     '<span class="sc-picker-hint">Cần nhiều hơn khung này? Chọn tạm rồi chỉnh số ở bước sau.</span>'
-            +   '</div>'
-            + '</div>'
             + '<div class="sc-editor" hidden>'
-            +   '<div class="sc-toolbar">'
-            +     '<div class="sc-bulk">'
-            +       '<label class="mb-0">Đặt mọi tầng thành</label>'
-            +       '<input type="number" class="form-control form-control-sm sc-bulk-value" min="1" max="' + CFG.maxLocations + '">'
-            +       '<button type="button" class="btn btn-sm btn-outline-secondary sc-bulk-apply">Áp dụng</button>'
-            +     '</div>'
-            +   '</div>'
+            // Thông số kệ (số tầng × vị trí mỗi tầng) + mô hình 3D - đổi số là lưới bên dưới đổi theo
+            +   '<div class="zs-spec sc-spec"></div>'
             +   '<div class="sc-grid"></div>'
             +   '<div class="sc-foot">'
             +     '<button type="button" class="btn btn-sm btn-outline-secondary sc-add-tier">'
@@ -1351,13 +1520,100 @@
     function newTier(position, max) {
         return {
             position: position, max: max, origMax: 0, lastBusy: 0,
-            busy: new Set(), off: new Set(), removed: false, wasRemoved: false,
+            busy: new Set(), off: new Set(), removed: false, wasRemoved: false, existing: false,
             label: 'Tầng ' + String(position).padStart(2, '0')
         };
     }
 
-    var PICKER_MAX_ROWS = Math.min(CFG.maxTiers, 30);
-    var PICKER_MAX_COLS = Math.min(CFG.maxLocations, 60);
+    /* ---------- Thông số kệ (port từ Định Khu của WMS): Số tầng × Vị trí mỗi tầng ---------- */
+
+    var SPEC_DIMS = [
+        { key: 'tiers', label: 'Số tầng', sub: 'của kệ · tầng 01 dưới cùng', min: 1, limit: 'maxTiers' },
+        { key: 'max', label: 'Vị trí mỗi tầng', sub: 'ô 1, 2, 3... từ trái sang', min: 1, limit: 'maxLocations' }
+    ];
+    var SPEC_DEFAULT = { tiers: 6, max: 50 };
+    var SPEC_KEY = 'dams.structure.spec';
+    // Kệ quá nhiều ô thì mô hình 3D vẽ mặt tầng dạng lưới kẻ thay cho từng ô
+    var MAX_3D_CELLS = 4000;
+
+    // Thông số lần tạo kệ trước trên máy này (chỉ để gợi ý, đọc hỏng thì dùng mặc định).
+    function lastSpec() {
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem(SPEC_KEY) || 'null'); } catch (err) { saved = null; }
+        var spec = {};
+        SPEC_DIMS.forEach(function (dim) {
+            var value = saved ? Number(saved[dim.key]) : 0;
+            spec[dim.key] = value >= dim.min && value <= CFG[dim.limit] ? value : SPEC_DEFAULT[dim.key];
+        });
+        return spec;
+    }
+
+    function specMaxes(spec) {
+        var list = [];
+        for (var i = 0; i < spec.tiers; i++) list.push(spec.max);
+        return list;
+    }
+
+    var FIG = { w: 160, h: 84 };
+
+    function svg(body) {
+        return '<svg class="zs-fig" viewBox="0 0 ' + FIG.w + ' ' + FIG.h + '" aria-hidden="true">' + body + '</svg>';
+    }
+
+    function svgRect(x, y, w, h, cls) {
+        return '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(w, 1).toFixed(1)
+            + '" height="' + Math.max(h, 1).toFixed(1) + '" rx="1.5" class="' + cls + '"/>';
+    }
+
+    function svgLine(x1, y1, x2, y2, cls) {
+        return '<line class="' + cls + '" x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1)
+            + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '"/>';
+    }
+
+    function svgText(x, y, value, cls, anchor) {
+        return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + (anchor || 'middle') + '"'
+            + (cls ? ' class="' + cls + '"' : '') + '>' + esc(value) + '</text>';
+    }
+
+    // Nhãn thứ i (0-based) khi chỉ vẽ `shown` trên `total` mục: mục áp chót thành "…", mục cuối là số thật.
+    function capLabel(i, shown, total, format) {
+        if (total > shown && i === shown - 1) return format(total);
+        if (total > shown && i === shown - 2) return '…';
+        return format(i + 1);
+    }
+
+    function two(n) {
+        return String(n).padStart(2, '0');
+    }
+
+    // Kệ nhìn chính diện: các tầng xếp chồng, Tầng 01 tô đậm ở dưới cùng.
+    function figTiers(v) {
+        var n = Math.min(v.tiers, 6);
+        var x0 = 58, y0 = 6, w = 48, h = 70, th = h / n, out = '';
+        out += svgLine(x0 - 3, 2, x0 - 3, y0 + h + 4, 'f-post');
+        out += svgLine(x0 + w + 3, 2, x0 + w + 3, y0 + h + 4, 'f-post');
+        for (var i = 0; i < n; i++) {
+            var index = n - 1 - i;
+            var y = y0 + i * th;
+            out += svgRect(x0, y + 1.5, w, th - 3, 'f-box' + (index === 0 ? ' is-first' : ''));
+            out += svgText(x0 - 9, y + th / 2 + 3, capLabel(index, n, v.tiers, two), index === 0 ? 'is-first' : '', 'end');
+        }
+        return svg(out);
+    }
+
+    // Mặt trước một tầng: các ô 1, 2, 3... từ trái sang.
+    function figMax(v) {
+        var n = Math.min(v.max, 8);
+        var x0 = 8, y0 = 20, w = 144, h = 34, bw = w / n, out = '';
+        out += svgLine(4, y0 + h + 3, 156, y0 + h + 3, 'f-post');
+        for (var i = 0; i < n; i++) {
+            out += svgRect(x0 + i * bw + 1.5, y0, bw - 3, h, 'f-box' + (i === 0 ? ' is-first' : ''));
+            out += svgText(x0 + i * bw + bw / 2, y0 + h + 15, capLabel(i, n, v.max, String), i === 0 ? 'is-first' : '');
+        }
+        return svg(out);
+    }
+
+    var FIGS = { tiers: figTiers, max: figMax };
 
     function createBlock(mode) {
         var isNew = mode === 'new';
@@ -1375,15 +1631,11 @@
             code: find('.sc-f-code'),
             name: find('.sc-f-name'),
             preview: find('.sc-preview'),
-            picker: find('.sc-picker'),
-            pickerGrid: find('.sc-picker-grid'),
-            readout: find('.sc-picker-readout'),
             editor: find('.sc-editor'),
+            spec: find('.sc-spec'),
             grid: find('.sc-grid'),
             summary: find('.sc-summary'),
-            addTier: find('.sc-add-tier'),
-            bulkValue: find('.sc-bulk-value'),
-            bulkApply: find('.sc-bulk-apply')
+            addTier: find('.sc-add-tier')
         };
 
         // tiers: [{ position, max, origMax, lastBusy, busy:Set, off:Set, removed, wasRemoved, label }]
@@ -1393,8 +1645,6 @@
             previewData: null, previewTimer: null
         };
 
-        var pickerRows = 6;
-        var pickerCols = 20;
         // Trong lúc kéo, cỡ ô phải đứng yên: nếu để nó co giãn theo số cột thì mốc quy đổi
         // từ toạ độ chuột ra số ô đổi liên tục và mép kéo bị giật.
         var lockedSize = null;
@@ -1496,75 +1746,6 @@
             el.name.addEventListener('input', function () { setDirty(true); });
         }
 
-        /* lưới chọn nhanh kiểu Word */
-
-        block.openPicker = function () {
-            pickerRows = 6;
-            pickerCols = 20;
-            el.picker.hidden = false;
-            el.editor.hidden = true;
-            el.readout.textContent = 'Chưa chọn';
-            drawPicker(0, 0);
-        };
-
-        function drawPicker(hoverRow, hoverCol) {
-            el.pickerGrid.style.setProperty('--cols', pickerCols);
-            var html = '';
-            for (var r = 1; r <= pickerRows; r++) {
-                for (var c = 1; c <= pickerCols; c++) {
-                    var on = r <= hoverRow && c <= hoverCol ? ' is-on' : '';
-                    html += '<span class="sc-pcell' + on + '" data-r="' + r + '" data-c="' + c + '"></span>';
-                }
-            }
-            el.pickerGrid.innerHTML = html;
-        }
-
-        function highlightPicker(hoverRow, hoverCol) {
-            el.pickerGrid.querySelectorAll('.sc-pcell').forEach(function (cell) {
-                cell.classList.toggle('is-on',
-                    Number(cell.dataset.r) <= hoverRow && Number(cell.dataset.c) <= hoverCol);
-            });
-        }
-
-        el.pickerGrid.addEventListener('mousemove', function (event) {
-            var cell = event.target.closest('.sc-pcell');
-            if (!cell) return;
-
-            var r = Number(cell.dataset.r);
-            var c = Number(cell.dataset.c);
-
-            // Nở thêm khi con trỏ chạm mép, giống lưới chèn bảng của Word.
-            var grew = false;
-            if (r === pickerRows && pickerRows < PICKER_MAX_ROWS) { pickerRows = Math.min(pickerRows + 2, PICKER_MAX_ROWS); grew = true; }
-            if (c === pickerCols && pickerCols < PICKER_MAX_COLS) { pickerCols = Math.min(pickerCols + 5, PICKER_MAX_COLS); grew = true; }
-
-            if (grew) {
-                drawPicker(r, c);
-            } else {
-                highlightPicker(r, c);
-            }
-
-            el.readout.textContent = r + ' tầng × ' + c + ' vị trí = ' + (r * c) + ' ô';
-        });
-
-        el.pickerGrid.addEventListener('click', function (event) {
-            var cell = event.target.closest('.sc-pcell');
-            if (!cell) return;
-
-            var rows = Number(cell.dataset.r);
-            var cols = Number(cell.dataset.c);
-
-            block.tiers = [];
-            for (var position = 1; position <= rows; position++) {
-                block.tiers.push(newTier(position, cols));
-            }
-
-            el.picker.hidden = true;
-            el.editor.hidden = false;
-            block.render();
-            changed();
-        });
-
         /* lưới tầng */
 
         function cellSize(columns) {
@@ -1576,8 +1757,9 @@
         block.render = function () {
             var visible = block.tiers.filter(function (tier) { return !(tier.removed && tier.origMax === 0); });
             if (!visible.length) {
-                el.grid.innerHTML = '<p class="sc-note">Chưa có tầng nào. Bấm "Thêm tầng" để bắt đầu.</p>';
+                el.grid.innerHTML = '<p class="sc-note">Chưa có tầng nào. Bấm "Thêm tầng" hoặc tăng "Số tầng" ở trên để bắt đầu.</p>';
                 el.summary.textContent = '';
+                block.paintSpec();
                 return;
             }
 
@@ -1601,6 +1783,7 @@
         function updateSummary() {
             var active = block.tiers.filter(function (tier) { return !tier.removed; });
             el.summary.textContent = active.length + ' tầng · ' + block.cells() + ' vị trí';
+            block.paintSpec();
         }
 
         function cellsMarkup(tier) {
@@ -1768,25 +1951,279 @@
             changed();
         });
 
-        el.bulkApply.addEventListener('click', function () {
-            var value = Number(el.bulkValue.value);
-            if (!value) return;
+        /* ---------- Thông số kệ + mô hình 3D ---------- */
 
-            var blocked = [];
-            block.tiers.forEach(function (tier) {
-                if (tier.removed) return;
+        function liveTiers() {
+            return block.tiers.filter(function (tier) { return !tier.removed; })
+                .sort(function (a, b) { return a.position - b.position; });
+        }
+
+        // Giá trị từng chiều: số nếu cả kệ đồng đều, null nếu các tầng khác nhau (sample = tầng đầu để vẽ hình).
+        function specValues() {
+            var live = liveTiers();
+            var maxes = {};
+            live.forEach(function (tier) { maxes[tier.max] = true; });
+            var keys = Object.keys(maxes);
+            return {
+                tiers: live.length,
+                max: keys.length > 1 ? null : Number(keys[0] || 0),
+                sample: { tiers: live.length || 1, max: live.length ? live[0].max : 1 }
+            };
+        }
+
+        function specCurrent(key) {
+            var v = specValues();
+            return v[key] === null ? v.sample[key] : v[key];
+        }
+
+        // Kệ mới bắt đầu ngay từ thông số (lần trước hoặc của kệ phía trên) thay cho lưới chọn nhanh.
+        block.startWith = function (maxes) {
+            block.tiers = maxes.map(function (max, index) { return newTier(index + 1, max); });
+            el.editor.hidden = false;
+            block.render();
+        };
+
+        function rememberSpec() {
+            if (!isNew) return;
+            var v = specValues();
+            try {
+                localStorage.setItem(SPEC_KEY, JSON.stringify({ tiers: v.tiers || 1, max: v.max || v.sample.max }));
+            } catch (err) { /* bỏ qua */ }
+        }
+
+        function specSkeleton() {
+            el.spec.innerHTML = '<div class="zs-spec-head">'
+                + '<span class="zs-spec-title"><i class="fas fa-ruler-combined"></i>Thông số kệ</span>'
+                + '<span class="zs-spec-formula"></span>'
+                + '</div>'
+                + '<div class="zs-spec-body">'
+                + '<div class="zs-spec-grid">'
+                + SPEC_DIMS.map(function (dim, i) {
+                    return '<div class="zs-spec-card" data-dim="' + dim.key + '">'
+                        + '<div class="zs-spec-label"><span class="zs-spec-no">' + (i + 1) + '</span>'
+                        +   '<span>' + dim.label + '<small>' + dim.sub + '</small></span></div>'
+                        + '<div class="zs-spec-fig"></div>'
+                        + '<div class="zs-stepper">'
+                        +   '<button type="button" class="zs-spec-step" data-step="-1" title="Bớt 1"><i class="fas fa-minus"></i></button>'
+                        +   '<input type="number" class="zs-spec-input" min="' + dim.min + '" max="' + CFG[dim.limit] + '"'
+                        +     ' aria-label="' + esc(dim.label) + '">'
+                        +   '<button type="button" class="zs-spec-step" data-step="1" title="Thêm 1"><i class="fas fa-plus"></i></button>'
+                        + '</div>'
+                        + '<div class="zs-spec-cap"></div>'
+                        + '</div>';
+                }).join('')
+                + '</div>'
+                + '<div class="w3d" title="Kéo chuột để xoay · nhấp đúp để về góc nghiêng">'
+                + (window.DamsShelf3d ? DamsShelf3d.markup() : '') + '</div>'
+                + '</div>';
+        }
+
+        function specCaption(key, value) {
+            if (value === null) return 'Đang khác nhau giữa các tầng';
+            if (key === 'tiers') return 'Tầng <b>01</b> (dưới cùng) → <b>' + two(value) + '</b>';
+            return 'Ô <b>1</b> → <b>' + value + '</b> mỗi tầng';
+        }
+
+        function paintSpec() {
+            if (!el.spec.querySelector('.zs-spec-card')) specSkeleton();
+
+            var v = specValues();
+            var focused = document.activeElement;
+            var figValues = { tiers: v.tiers || 1, max: v.max || v.sample.max };
+
+            SPEC_DIMS.forEach(function (dim) {
+                var card = el.spec.querySelector('.zs-spec-card[data-dim="' + dim.key + '"]');
+                var value = v[dim.key];
+                var input = card.querySelector('.zs-spec-input');
+
+                card.classList.toggle('is-mixed', value === null);
+                if (input !== focused) input.value = value === null ? '' : value;
+                input.placeholder = value === null ? '≠' : '';
+                input.title = value === null ? 'Đang khác nhau - nhập số để đặt chung cho cả kệ' : '';
+
+                var shown = value === null ? v.sample[dim.key] : value;
+                card.querySelector('[data-step="-1"]').disabled = value !== null && shown <= dim.min;
+                card.querySelector('[data-step="1"]').disabled = value !== null && shown >= CFG[dim.limit];
+                card.querySelector('.zs-spec-fig').innerHTML = FIGS[dim.key](figValues);
+                card.querySelector('.zs-spec-cap').innerHTML = specCaption(dim.key, value);
+            });
+
+            el.spec.querySelector('.zs-spec-formula').innerHTML = '<b>' + v.tiers + '</b> tầng × '
+                + (v.max === null ? '<span class="is-mixed">≠ vị trí</span>' : '<b>' + v.max + '</b> vị trí')
+                + ' = <b>' + block.cells().toLocaleString() + '</b> vị trí';
+
+            schedule3d();
+        }
+
+        // Trạng thái hiển thị của một ô trên mô hình: kệ mới = sẽ tạo; kệ có sẵn tô như lưới 2D.
+        function cell3dClass(tier, p) {
+            if (isNew) return 'is-plan';
+            if (p > tier.origMax) return 'is-new';
+            if (tier.busy.has(p)) return 'is-busy';
+            if (tier.off.has(p)) return 'is-off';
+            return 'is-free';
+        }
+
+        function render3d() {
+            var stage = el.spec.querySelector('.w3d');
+            if (!stage || !window.DamsShelf3d) return;
+
+            var live = liveTiers();
+            var drawCells = block.cells() <= MAX_3D_CELLS;
+            var title = block.code() || 'Kệ';
+
+            DamsShelf3d.render(stage, {
+                unit: 16, gap: 3, pad: 7, tierHeight: 46,
+                levels: Math.max(live.length, 1),
+                empty: 'Chưa có tầng nào.',
+                columns: live.length ? [{
+                    label: title,
+                    code: '',
+                    tiers: live.map(function (tier, index) {
+                        var cells = [];
+                        if (drawCells) {
+                            for (var p = 1; p <= tier.max; p++) {
+                                cells.push({ p: p, d: 1, cls: cell3dClass(tier, p), title: tier.label + ' · ô ' + p, label: String(p) });
+                            }
+                        }
+                        return {
+                            label: two(index + 1),
+                            first: index === 0,
+                            level: index,
+                            max: tier.max,
+                            depth: 1,
+                            texture: !drawCells,
+                            title: tier.label + ' · ' + tier.max + ' vị trí',
+                            cells: cells
+                        };
+                    })
+                }] : []
+            });
+        }
+
+        var raf = 0;
+        function schedule3d() {
+            if (raf) return;
+            raf = requestAnimationFrame(function () {
+                raf = 0;
+                render3d();
+            });
+        }
+
+        // Đặt số tầng đang dùng: thêm ở trên cùng (mở lại tầng đang khoá trước, rồi mới tạo tầng giống tầng
+        // cao nhất), bớt từ tầng cao nhất; tầng đang có hồ sơ thì dừng lại.
+        function setTierCount(count, warnings) {
+            var live = liveTiers();
+
+            while (live.length < count) {
+                var dormant = block.tiers.filter(function (tier) { return tier.removed; })
+                    .sort(function (a, b) { return a.position - b.position; })[0];
+                if (dormant) {
+                    dormant.removed = false;
+                } else {
+                    var highest = block.tiers.reduce(function (max, tier) { return Math.max(max, tier.position); }, 0);
+                    if (highest >= CFG.maxTiers) break;
+                    var top = live[live.length - 1];
+                    block.tiers.push(newTier(highest + 1, top ? top.max : SPEC_DEFAULT.max));
+                }
+                live = liveTiers();
+            }
+
+            while (live.length > count) {
+                var tier = live[live.length - 1];
+                if (tier.lastBusy) {
+                    warnings.push(tier.label + ' đang chứa hồ sơ, không gỡ được');
+                    break;
+                }
+                if (tier.existing) tier.removed = true;
+                else block.tiers.splice(block.tiers.indexOf(tier), 1);
+                live = liveTiers();
+            }
+        }
+
+        // Đặt số vị trí cho mọi tầng; không thu nhỏ qua ô đang có hồ sơ.
+        function setMaxAll(value, warnings) {
+            liveTiers().forEach(function (tier) {
                 var next = clampMax(tier, value);
-                if (next !== value) blocked.push(tier.label + ' (tối thiểu ' + next + ')');
+                if (next !== value) warnings.push(tier.label + ' giữ ' + next + ' vị trí');
                 tier.max = next;
             });
+        }
+
+        function applySpec(key, value) {
+            var dim = SPEC_DIMS.find(function (item) { return item.key === key; });
+            if (!dim) return;
+
+            value = Math.round(Number(value));
+            if (!value || value < dim.min) value = dim.min;
+            if (value > CFG[dim.limit]) {
+                toast('warning', 'Tối đa ' + CFG[dim.limit] + ' - ' + dim.label.toLowerCase() + '.');
+                value = CFG[dim.limit];
+            }
+
+            var warnings = [];
+            if (key === 'tiers') setTierCount(value, warnings);
+            else setMaxAll(value, warnings);
 
             block.render();
             changed();
+            rememberSpec();
 
-            if (blocked.length) {
-                toast('warning', 'Một số tầng không xuống được ' + value + ' vì đang chứa hồ sơ: ' + blocked.join(', '));
+            if (warnings.length) {
+                toast('warning', 'Không thu nhỏ được chỗ đang chứa hồ sơ: ' + warnings.join('; ') + '. Hãy chuyển hồ sơ đi trước.');
+            }
+        }
+
+        el.spec.addEventListener('click', function (event) {
+            var step = event.target.closest('.zs-spec-step');
+            if (!step) return;
+            var key = step.closest('.zs-spec-card').dataset.dim;
+            applySpec(key, specCurrent(key) + Number(step.dataset.step));
+        });
+
+        el.spec.addEventListener('change', function (event) {
+            var input = event.target.closest('.zs-spec-input');
+            if (!input) return;
+            if (input.value === '') {
+                paintSpec();
+                return;
+            }
+            applySpec(input.closest('.zs-spec-card').dataset.dim, input.value);
+        });
+
+        el.spec.addEventListener('keydown', function (event) {
+            var input = event.target.closest('.zs-spec-input');
+            if (!input) return;
+            // Mũi tên lên/xuống tăng giảm như nút +/-, Enter để áp số vừa gõ.
+            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                var key = input.closest('.zs-spec-card').dataset.dim;
+                applySpec(key, specCurrent(key) + (event.key === 'ArrowUp' ? 1 : -1));
+                input.value = specCurrent(key);
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                input.blur();
             }
         });
+
+        // Rê vào thẻ thông số nào thì chiều đó sáng lên trên mô hình 3D.
+        ['mouseover', 'focusin'].forEach(function (type) {
+            el.spec.addEventListener(type, function (event) {
+                var card = event.target.closest('.zs-spec-card');
+                var stage = el.spec.querySelector('.w3d');
+                if (stage) stage.dataset.hl = card ? card.dataset.dim : '';
+            });
+        });
+
+        el.spec.addEventListener('mouseout', function (event) {
+            if (el.spec.contains(event.relatedTarget)) return;
+            var stage = el.spec.querySelector('.w3d');
+            if (stage && !el.spec.contains(document.activeElement)) stage.dataset.hl = '';
+        });
+
+        block.paintSpec = paintSpec;
+        // Đổi mã kệ thì nhãn trên nóc mô hình 3D đổi theo
+        el.code.addEventListener('input', schedule3d);
 
         block.setTitle(1);
         return block;
@@ -1825,6 +2262,7 @@
                         off: new Set(tier.off || []),
                         removed: Number(tier.status_id) !== 1,
                         wasRemoved: Number(tier.status_id) !== 1,
+                        existing: true,
                         label: tier.name || tier.code
                     };
                 }).filter(function (tier) { return tier.position > 0; });
@@ -2007,6 +2445,7 @@
 
     show('warehouses');
     loadWarehouses();
+    if (zoneViews) zoneViews.start();
 })();
 </script>
 @endverbatim
